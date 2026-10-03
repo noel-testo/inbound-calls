@@ -1,0 +1,32 @@
+[project]
+name = "inbound-calls"
+version = "0.0.0"
+description = "ControlFreq self-hosted AI call answering service"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "asyncpg>=0.30",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+# Agent runtime deps (livekit-agents + provider SDKs) are added in Phase 3,
+# once the provider choices in docs/QUESTIONS.md are settled. Phase 0 only needs
+# the tooling above to run db/migrate.py and scripts/seed_config.py.
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

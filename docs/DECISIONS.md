@@ -13,6 +13,57 @@ Record every architecture decision and every pinned version here. One entry per 
 - **Recording on the FreeSWITCH leg**, not LiveKit egress, to avoid another service.
 - **MVP scope:** after-hours and unanswered calls only; no live transfer until daytime traffic.
 
+## 2026-10-03 — Phase 0 scaffold decisions (Claude)
+
+- **Single `uv` project at the repo root**, not one per component. "The best part is no part":
+  one `pyproject.toml`, one `uv.lock`. The agent runtime deps (`livekit-agents` + provider SDKs)
+  are deferred to Phase 3, when the provider choices in `docs/QUESTIONS.md` are settled.
+- **One Postgres driver — `asyncpg`** — across the agent (`store/`), `db/migrate.py` and
+  `scripts/seed_config.py`. No second driver.
+- **LiveKit secrets via env, never in YAML.** `livekit.yaml`/`sip.yaml` carry no keys; the key/secret
+  are injected as `LIVEKIT_KEYS` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` from `../.env`. Because
+  compose interpolates `${...}` at parse time, the stack must be brought up with the env file:
+  `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`.
+- **Phase 0 bring-up targets a subset.** `freeswitch` (Phase 2) and `agent` (Phase 2/3) have no
+  Dockerfile yet, so they are not built or started in Phase 0; the command above names the five
+  stack services only. Their base images are pinned when those Dockerfiles are written.
+- **`seed_config.py` skips `TODO` placeholders** so nothing unapproved reaches the agent or STT, and
+  warns when seeded config still contains them (expected until Noel approves wording).
+- **Redis healthcheck** added to compose; other services judged via `docker compose ps` for now.
+
+## 2026-10-03 — Neon preview branches in CI (Noel provided the template)
+
+- **Adopted** `.github/workflows/neon-branch.yml` from Neon's create/delete-branch template Noel
+  supplied, adapted to our stack: per PR it creates an ephemeral Neon branch of "Inbound Calls",
+  sets up `uv`, runs `db/migrate.py` + `scripts/seed_config.py` against the branch's `receptionist`
+  database, and posts a schema diff; the branch is deleted on PR close. This is how schema changes
+  get validated per PR without touching the main `receptionist` database.
+- **Corrected from the pasted template:** create-branch-action v6 outputs are `db_url` /
+  `db_url_pooled` (the template's `db_url_with_pooler` and `create_neon_branch_encode` step id are
+  from an older version). Migrations use the **unpooled** `db_url` — DDL over asyncpg misbehaves
+  through the PgBouncer pooler. Added `database: receptionist` so both actions target our database,
+  not the default `neondb`, and `permissions: pull-requests: write` for the diff comment.
+- **Requires in GitHub repo settings:** secret `NEON_API_KEY` (write-capable Neon key) and variable
+  `NEON_PROJECT_ID = wandering-union-75946614`. Noel to add these.
+- GitHub Actions pins: `tj-actions/branch-names@v8`, `neondatabase/create-branch-action@v6`,
+  `neondatabase/delete-branch-action@v3`, `neondatabase/schema-diff-action@v1`,
+  `actions/checkout@v4`, `astral-sh/setup-uv@v10.2.0` (pinned to the exact release — setup-uv
+  publishes only full-semver tags, no bare `vN` major ref, so `@v10` fails to resolve in CI).
+
 ## Version pins
 
-(Phase 0 — record every image tag and Python package version here with the date.)
+Recorded 2026-10-03. Image tags verified against the registries on this date.
+
+### Container images (`infra/docker-compose.yml`)
+- `redis:7.4-alpine`
+- `livekit/livekit-server:v1.13.7`
+- `livekit/sip:v1.17.0`
+- `ghcr.io/windmill-labs/windmill:v1.822.0` (server and worker, same tag)
+- `caddy:2.8-alpine`
+- `freeswitch` base image — Phase 2 (Dockerfile not yet written)
+- `agent` base image — Phase 2/3 (Dockerfile not yet written)
+
+### Python (`.python-version`, `pyproject.toml`, `uv.lock`)
+- CPython 3.12 (resolved 3.12.13)
+- Runtime: `asyncpg==0.31.0`, `pyyaml==6.0.3`, `python-dotenv==1.2.4`
+- Dev: `ruff==0.16.10`, `pytest==9.1.1`, `pytest-asyncio==1.4.0`

@@ -1,0 +1,103 @@
+# Neon preview branch per pull request.
+#
+# On PR open/reopen/update: creates an ephemeral Neon branch of the "Inbound Calls"
+# project, applies our schema (db/migrate.py) and seeds config (scripts/seed_config.py)
+# against its `receptionist` database, then posts a schema diff vs. the parent branch.
+# On PR close: deletes the branch.
+#
+# Requires in the GitHub repo:
+#   - secret   NEON_API_KEY     (Neon account/org API key, write-capable)
+#   - variable NEON_PROJECT_ID  (= wandering-union-75946614)
+# The branch DATABASE_URL carries a password — never echo it to logs.
+
+name: Neon Preview Branch
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  setup:
+    name: Setup
+    outputs:
+      branch: ${{ steps.branch_name.outputs.current_branch }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+  create_neon_branch:
+    name: Create Neon branch and migrate
+    needs: setup
+    if: |
+      github.event_name == 'pull_request' && (
+      github.event.action == 'synchronize'
+      || github.event.action == 'opened'
+      || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Branch expiry (14 days from now)
+        id: get_expiration_date
+        run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Create Neon branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          database: receptionist
+          role: neondb_owner
+          api_key: ${{ secrets.NEON_API_KEY }}
+          expires_at: ${{ env.EXPIRES_AT }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv (Python 3.12 from .python-version)
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Apply schema and seed config
+        env:
+          # Unpooled connection: our migrations are DDL run over asyncpg, which
+          # misbehaves through the PgBouncer pooler. Never logged (SPEC §12).
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          uv run python db/migrate.py
+          uv run python scripts/seed_config.py
+
+      - name: Post schema diff to PR
+        uses: neondatabase/schema-diff-action@v1
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          compare_branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          database: receptionist
+          api_key: ${{ secrets.NEON_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  delete_neon_branch:
+    name: Delete Neon branch
+    needs: setup
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}

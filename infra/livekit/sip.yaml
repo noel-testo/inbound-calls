@@ -1,0 +1,10 @@
+# LiveKit SIP service. In Phase 2 the inbound trunk is locked to accept INVITEs only
+# from FreeSWITCH. Connects to livekit-server via the env vars in docker-compose.yml
+# (LIVEKIT_WS_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET).
+sip_port: 5060
+rtp_port: 10000-10200
+redis:
+  address: redis:6379
+logging:
+  level: info
+  json: true
