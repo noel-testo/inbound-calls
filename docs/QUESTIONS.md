@@ -18,6 +18,8 @@ questions are raised in the session immediately and recorded here afterwards.
 - **n8n:** export of the current RingCentral missed-call workflow JSON. *Default:* none; blocking for Phase 4.
 - **Terms list:** product names, staff names, major client and site names for `config/terms.yaml`. *Default:* placeholders.
 - **Apollo → HubSpot sync:** confirm it is one-way (enrichment only) so the agent is the only thing creating deals. *Default:* assume yes.
+- **Windmill public hostname + DNS** for Caddy TLS (`WINDMILL_DOMAIN`). *Default:* a subdomain on a ControlFreq domain (e.g. `windmill.controlfreq.…`) A-record'd to the host; set in `.env` at bring-up.
+- **SIP topology (Phase 2):** FreeSWITCH runs `network_mode: host` but `livekit-sip` is on the compose bridge and unpublished — they can't talk as drawn. *Default:* publish `livekit-sip` 5060/udp + its RTP range bound to the Docker bridge gateway only, firewalled off the public interface, and point FreeSWITCH's dialplan at that address. Revisit in Phase 2; no action needed now.
 
 ## Answered
 

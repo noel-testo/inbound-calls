@@ -1,0 +1,6 @@
+# TLS for the Windmill UI only (SPEC §12). The domain comes from ../.env
+# (WINDMILL_DOMAIN); Caddy obtains and renews a certificate automatically over
+# ports 80/443. Nothing else is terminated here.
+{$WINDMILL_DOMAIN} {
+	reverse_proxy windmill-server:8000
+}
