@@ -1,0 +1,34 @@
+# Everything the caller hears verbatim. NOEL: every TODO must be approved before Phase 5.
+# These are spoken as written, never paraphrased by the model.
+
+business_name: ControlFreq
+expert_name: "TODO"            # the solution expert who takes discovery calls
+expert_title: "TODO"           # e.g. "our solutions director"
+
+business_hours:
+  timezone: Europe/London
+  weekdays: "TODO 09:00-17:30"
+  saturday: closed
+  sunday: closed
+
+greeting: >
+  TODO — Thanks for calling ControlFreq. You're speaking to our AI assistant, and this call is recorded.
+  How can I help?
+
+silence_prompt: "Are you still there?"
+
+closing: >
+  TODO — Thanks for calling ControlFreq. Goodbye.
+
+# Spoken verbatim, first, when a caller describes an active emergency (for example someone trapped
+# in a lift or an alarm not reporting right now). Must be written by Noel: it may need to direct the
+# caller to a specific emergency line or service.
+emergency_instruction: "TODO"
+
+# One-line deflections (§5.1). Spoken as written.
+deflections:
+  pricing: "I can't give pricing on this call, but {expert_name} can on the discovery call."
+  sla_or_promise: "I can't commit to timescales, but I'll make sure the team has the details."
+  are_you_human: "I'm ControlFreq's AI assistant. I can take details and book a call with the team."
+  engineering_advice: "I'm not able to advise on that, but I'll log it for an engineer."
+  card_details: "I can't take payment details. The team will contact you about that."

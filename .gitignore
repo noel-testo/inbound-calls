@@ -1,0 +1,13 @@
+.env
+*.env
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+recordings/
+*.wav
+*.mp3
+infra/freeswitch/conf/sip_profiles/external/ringcentral.xml
+.DS_Store

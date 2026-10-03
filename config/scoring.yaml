@@ -1,0 +1,50 @@
+# Lead scoring — weighted sum. Edit freely; the agent and Windmill both read this from Neon `config`.
+# Run scripts/seed_config.py after editing.
+
+high_value_threshold: 50
+
+weights:
+  caller_role:
+    lift_contractor: 30
+    managing_agent: 30
+    facilities_manager: 25
+    landlord_owner: 20
+    consultant: 15
+    installer: 15
+    other: 0
+    unknown: 0
+  asset_type:            # applied per asset type present
+    lifts: 15
+    car_parks: 10
+    alarm_panels: 10
+    other: 0
+  estate_size:           # first matching band, by count regardless of unit
+    bands:
+      - { min: 50, points: 30 }
+      - { min: 10, points: 20 }
+      - { min: 3,  points: 10 }
+      - { min: 1,  points: 0 }
+  current_connectivity:
+    pstn_copper: 20
+    mixed: 15
+    existing_4g: 5
+    unknown: 0
+  driver:
+    pstn_switch_off: 15
+    failures: 10
+    new_build: 10
+    contract_renewal: 10
+    cost: 5
+    other: 0
+    unknown: 0
+  timeline:
+    immediate: 15
+    1_3_months: 10
+    3_6_months: 5
+    6_plus: 0
+    unknown: 0
+  decision_authority:
+    decision_maker: 10
+    influencer: 5
+    researcher: 0
+    unknown: 0

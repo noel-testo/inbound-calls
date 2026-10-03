@@ -1,0 +1,44 @@
+# STT key terms. Fed to the speech recogniser and the prompt so product names, standards, staff and
+# client names are recognised correctly. Add freely; keep each term exactly as it should be transcribed.
+# NOEL: review and extend before Phase 3. Entries marked TODO are placeholders.
+
+product:
+  - ControlFreq
+  - lift autodialler
+  - autodialler
+  - emergency telephone
+  - 4G lift communication unit
+  - GSM gateway
+  - SIM
+  - roaming SIM
+  - access control
+  - car park barrier
+  - ANPR
+  - alarm panel
+  - alarm monitoring
+  - TODO product names
+
+standard:
+  - EN81-28
+  - EN 81-28
+  - PSTN
+  - PSTN switch-off
+  - analogue line
+  - copper line
+  - BT Openreach
+  - Openreach
+  - All-IP
+  - 2G switch-off
+  - 3G switch-off
+
+staff:
+  - TODO expert name
+  - TODO staff names
+
+client:
+  - TODO major client and site names
+
+place:
+  - Worthing
+  - West Sussex
+  - TODO common site locations
