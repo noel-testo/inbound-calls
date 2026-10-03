@@ -12,14 +12,15 @@
   - `infra/livekit/livekit.yaml`, `infra/livekit/sip.yaml`, `infra/caddy/Caddyfile` written.
   - `db/migrate.py` (idempotent schema apply) and `scripts/seed_config.py` (config + terms, skips TODO) written; both compile.
 
+- **Neon project** (created by Noel): "Inbound Calls" `wandering-union-75946614`, London (aws-eu-west-2), PG 18.6, default branch `production` `br-steep-breeze-za0ra5h9`, databases `receptionist` + `windmill` + default `neondb`.
+- **PR #1 open** (`phase-0-scaffold-stack` → `main`): https://github.com/noel-testo/inbound-calls/pull/1
+- **CI green** — `Neon Preview Branch` run succeeded (https://github.com/noel-testo/inbound-calls/actions/runs/37158589767). On a fresh preview branch it applied `db/schema.sql` and ran `seed_config.py`. Verified on that branch: `config`=3 keys (greeting, prompt, scoring), `terms`=26, 6 tables, 3 enums. **migrate + seed proven end-to-end.**
+
 ## Next
-- **Neon project created** (by Noel): "Inbound Calls" `wandering-union-75946614`, region London (aws-eu-west-2), PG 18.6, branch `production` `br-steep-breeze-za0ra5h9`, databases `receptionist` + `windmill` + default `neondb`. ADMIN access.
-- **Schema + seed still to apply** — the connected Neon MCP is **read-only** (reads work; every write returns "read-only transaction"; no migration/write tool exposed). Unblock by any one of:
-  - Re-authorise the Neon MCP with write access → Claude applies `db/schema.sql`, seeds config + terms, verifies.
-  - Set `DATABASE_URL`/`WINDMILL_DATABASE_URL` in `.env` (strings from the Neon console) and run `uv run python db/migrate.py` then `uv run python scripts/seed_config.py`; Claude verifies `select count(*) from config` via the MCP read.
-- **Then host bring-up:** `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`.
-- **DoD to confirm:** five containers healthy, Windmill UI reachable over TLS, `select count(*) from config` returns the seeded keys.
-- Then Phase 1 (HubSpot).
+- **Seed the persistent `receptionist`** (default `production` branch) for the host stack: CI only seeds ephemeral PR branches. Do it at host bring-up by running `uv run python db/migrate.py` + `scripts/seed_config.py` with `.env` pointing at `ep-crimson-silence-zamkm67n...` / `receptionist`. (The attached Neon MCP is read-only, so Claude can't write to `production` from here.)
+- **Host bring-up:** `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`.
+- **DoD remaining:** five containers healthy + Windmill UI over TLS (needs host + `WINDMILL_DOMAIN`/DNS). Database half of the DoD is proven via CI.
+- Merge PR #1, then Phase 1 (HubSpot).
 
 ## Blocked
 - **Neon writes:** the connected Neon MCP is read-only — needs a writable reconnect, or Noel runs migrate/seed with the `.env` connection strings. (It also cannot create projects; Noel created "Inbound Calls" in the console.)
