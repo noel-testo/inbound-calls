@@ -22,6 +22,7 @@
 
 ## Blocked
 - Phase 0 bring-up: host access and a Neon project (DATABASE_URL, WINDMILL_DATABASE_URL), plus the Windmill public hostname for Caddy TLS.
+  - The connected Neon MCP exposes SQL/management for existing projects but **not** project creation. The "Inbound Calls" project must be created in the Neon console (or by a tool/key that can create projects); then Claude can apply the schema and seed config into it via `run_sql`.
 - Expert identity and HubSpot meeting link (Phase 1).
 - RingCentral admin access and the receptionist extension (Phase 2).
 
