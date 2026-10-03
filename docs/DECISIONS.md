@@ -31,6 +31,24 @@ Record every architecture decision and every pinned version here. One entry per 
   warns when seeded config still contains them (expected until Noel approves wording).
 - **Redis healthcheck** added to compose; other services judged via `docker compose ps` for now.
 
+## 2026-10-03 — Neon preview branches in CI (Noel provided the template)
+
+- **Adopted** `.github/workflows/neon-branch.yml` from Neon's create/delete-branch template Noel
+  supplied, adapted to our stack: per PR it creates an ephemeral Neon branch of "Inbound Calls",
+  sets up `uv`, runs `db/migrate.py` + `scripts/seed_config.py` against the branch's `receptionist`
+  database, and posts a schema diff; the branch is deleted on PR close. This is how schema changes
+  get validated per PR without touching the main `receptionist` database.
+- **Corrected from the pasted template:** create-branch-action v6 outputs are `db_url` /
+  `db_url_pooled` (the template's `db_url_with_pooler` and `create_neon_branch_encode` step id are
+  from an older version). Migrations use the **unpooled** `db_url` — DDL over asyncpg misbehaves
+  through the PgBouncer pooler. Added `database: receptionist` so both actions target our database,
+  not the default `neondb`, and `permissions: pull-requests: write` for the diff comment.
+- **Requires in GitHub repo settings:** secret `NEON_API_KEY` (write-capable Neon key) and variable
+  `NEON_PROJECT_ID = wandering-union-75946614`. Noel to add these.
+- GitHub Actions pins: `tj-actions/branch-names@v8`, `neondatabase/create-branch-action@v6`,
+  `neondatabase/delete-branch-action@v3`, `neondatabase/schema-diff-action@v1`,
+  `actions/checkout@v4`, `astral-sh/setup-uv@v10` (latest major, verified on this date).
+
 ## Version pins
 
 Recorded 2026-10-03. Image tags verified against the registries on this date.
