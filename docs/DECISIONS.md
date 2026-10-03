@@ -47,7 +47,8 @@ Record every architecture decision and every pinned version here. One entry per 
   `NEON_PROJECT_ID = wandering-union-75946614`. Noel to add these.
 - GitHub Actions pins: `tj-actions/branch-names@v8`, `neondatabase/create-branch-action@v6`,
   `neondatabase/delete-branch-action@v3`, `neondatabase/schema-diff-action@v1`,
-  `actions/checkout@v4`, `astral-sh/setup-uv@v10` (latest major, verified on this date).
+  `actions/checkout@v4`, `astral-sh/setup-uv@v10.2.0` (pinned to the exact release — setup-uv
+  publishes only full-semver tags, no bare `vN` major ref, so `@v10` fails to resolve in CI).
 
 ## Version pins
 
