@@ -1,6 +1,6 @@
 # Status
 
-**Current phase:** 1 — HubSpot (client scaffolded) · Phase 0 host bring-up still outstanding
+**Current phase:** 1 — HubSpot (client + provisioning scaffolded) · Phase 0 host bring-up still outstanding
 **Last updated:** 2026-10-04
 
 ## Done
@@ -17,19 +17,19 @@
 - **CI green** — `Neon Preview Branch` run succeeded (https://github.com/noel-testo/inbound-calls/actions/runs/37158589767). On a fresh preview branch it applied `db/schema.sql` and ran `seed_config.py`. Verified on that branch: `config`=3 keys (greeting, prompt, scoring), `terms`=26, 6 tables, 3 enums. **migrate + seed proven end-to-end.**
 - **Phase 0 code is done and on `main`.**
 - **Production `receptionist` seeded** (2026-10-04): ran `db/migrate.py` + `scripts/seed_config.py` against the persistent `production` branch (unpooled connection). Verified `select count(*) from config` = **3** (greeting, scoring, prompt); 26 terms, 5 TODO placeholders skipped. The database half of the DoD is met on the persistent store. Only the host bring-up below remains.
-- **Phase 1 HubSpot client scaffolded** (branch `phase-1-hubspot-client`): `agent/hubspot/` thin async client — `search_contact_by_phone`, `upsert_contact`, `upsert_company`, `create_deal`, `create_call`, `get_availability`, `book_meeting`. 11 unit tests via `httpx.MockTransport`; ruff clean. `httpx` added to deps.
+- **Phase 1 HubSpot scaffolded** (branch `phase-1-hubspot-client`): `agent/hubspot/` thin async client (`search_contact_by_phone` incl. spaced `+44` form, `upsert_contact`, `upsert_company`, `create_deal`, `create_call`, `get_availability`, `book_meeting`) and `scripts/provision_hubspot.py` (idempotent create-only: group pre-check + 12 `cf_` properties per §9; `--dry-run` verified). Service-Key auth (`HUBSPOT_SERVICE_KEY` runtime, `HUBSPOT_PROVISION_KEY` provisioning); pipeline/stages/owner wired in `.env.example`. 16 unit tests via `httpx.MockTransport`; ruff + format clean.
 
 ## Next — one host item to close Phase 0 DoD
 - **Bring up the stack on the host:** on the server, with `.env` present, run `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`. DoD: all five containers healthy and the Windmill UI reachable over HTTPS.
 
 ## Phase 1 — HubSpot (in progress)
-- **Done:** `agent/hubspot/` client scaffolded + unit-tested (see Done above).
-- **Next:** `scripts/provision_hubspot.py` to create the `cf_` contact properties + `Inbound` pipeline/stages (idempotent, create-only); later wire the client into the agent tools (Phase 3).
-- **DoD (blocked):** a test script books a real meeting on the expert's link → appears in Google Calendar → confirmation email arrives, and unit tests pass against fixtures. Unit tests done; the live booking needs the blocking answers below.
+- **Done:** `agent/hubspot/` client + `scripts/provision_hubspot.py` scaffolded and unit-tested (16 tests). Pipeline = existing "Sales Pipeline" (`default`); stages Lead Identified (6139983093) / Initial Contact (6139983094); expert Noel Sesto (owner 99735767).
+- **Next (needs keys):** run `uv run python scripts/provision_hubspot.py` with `HUBSPOT_PROVISION_KEY` to create the group + 12 `cf_` properties; then the live booking test with `HUBSPOT_SERVICE_KEY` + the meeting-link slug; later wire the client into the agent tools (Phase 3).
+- **DoD (blocked):** a test script books a real meeting on the expert's link → appears in Google Calendar → confirmation email arrives, and unit tests pass against fixtures. Unit tests done; the live booking needs the keys + slug below.
 
 ## Blocked
 - **Phase 0 host bring-up:** blocked until a host exists and `WINDMILL_DOMAIN` has DNS pointing at it (Caddy needs the hostname for a TLS cert).
-- **Phase 1 live DoD:** blocked on the expert's identity, the HubSpot meeting-link slug, and the private-app token — plus confirm whether to use an existing deal pipeline or create `Inbound` (QUESTIONS default: create `Inbound`). Client code + tests are done; provisioning and a real booking need these.
+- **Phase 1 live steps:** blocked on the HubSpot Service Keys (`HUBSPOT_SERVICE_KEY`, `HUBSPOT_PROVISION_KEY`) and the expert's meeting-link slug. Code + unit tests are done; running provisioning and a real booking need these. (Pipeline/stages/owner are decided — see Phase 1 above.)
 - Expert identity and HubSpot meeting link (Phase 1).
 - RingCentral admin access and the receptionist extension (Phase 2).
 

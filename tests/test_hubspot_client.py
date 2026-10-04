@@ -44,10 +44,22 @@ def make_client(recorder: Recorder, **kw) -> HubSpotClient:
 
 
 def test_uk_phone_variants():
-    assert uk_phone_variants("+447700900123") == ["+447700900123", "07700900123"]
-    assert uk_phone_variants("07700900123") == ["07700900123", "+447700900123"]
+    assert uk_phone_variants("+447700900123") == [
+        "+447700900123",
+        "07700900123",
+        "+44 7700 900123",
+    ]
+    assert uk_phone_variants("07700900123") == [
+        "07700900123",
+        "+447700900123",
+        "+44 7700 900123",
+    ]
     assert uk_phone_variants("+13105551234") == ["+13105551234"]
-    assert uk_phone_variants(" 077 00900123 ") == ["07700900123", "+447700900123"]
+    assert uk_phone_variants(" 077 00900123 ") == [
+        "07700900123",
+        "+447700900123",
+        "+44 7700 900123",
+    ]
 
 
 async def test_search_contact_by_phone_found():
@@ -94,8 +106,10 @@ async def test_search_contact_by_phone_found():
     assert pairs == {
         ("phone", "+447700900123"),
         ("phone", "07700900123"),
+        ("phone", "+44 7700 900123"),
         ("mobilephone", "+447700900123"),
         ("mobilephone", "07700900123"),
+        ("mobilephone", "+44 7700 900123"),
     }
     await client.aclose()
 

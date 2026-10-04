@@ -5,8 +5,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Open
 
-- **Expert:** who takes discovery calls, their HubSpot user, and their meeting link slug. *Default:* none; blocking for Phase 1.
-- **HubSpot pipeline:** use an existing deal pipeline and stages, or create `Inbound`? *Default:* create `Inbound`.
+- **HubSpot meeting-link slug + Service Keys:** the expert's 30-minute discovery-call link slug, and the `HUBSPOT_SERVICE_KEY` (runtime) / `HUBSPOT_PROVISION_KEY` (provisioning) values. *To follow from Noel; blocks the live Phase 1 booking and the provisioning run.*
 - **Business hours** for `config/greeting.yaml` and for "after hours". *Default:* Mon–Fri 09:00–17:30.
 - **Greeting, closing, emergency instruction** wording. *Default:* the TODO placeholders stay until approved; blocking for Phase 5.
 - **Voice:** Cartesia or ElevenLabs, and which British English voice. *Default:* Cartesia, first suitable British voice, for Phase 3 testing only.
@@ -23,4 +22,6 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Answered
 
-(none yet)
+- **Expert / discovery-call owner:** Noel Sesto, HubSpot owner id 99735767. (2026-10-04)
+- **Deal pipeline:** use the existing "Sales Pipeline" (id `default`) — no new `Inbound` pipeline (Starter plan allows two). Receptionist outcomes map to existing stages: Qualified – not booked → "Lead Identified" (6139983093); Discovery booked → "Initial Contact" (6139983094). (2026-10-04)
+- **HubSpot auth:** Service Keys, not a legacy private app — `HUBSPOT_SERVICE_KEY` (runtime) + `HUBSPOT_PROVISION_KEY` (provisioning). (2026-10-04)

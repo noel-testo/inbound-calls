@@ -11,7 +11,7 @@ Returned dicts are compact so the model can speak from them.
 
 Live behaviour (a real booking landing in Google Calendar with a confirmation
 email — the Phase 1 definition of done) is blocked until the expert's meeting-link
-slug, owner id, pipeline and private-app token are known. The scheduler
+slug and HubSpot Service Key are known. The scheduler
 request/response shapes below follow HubSpot's docs and are covered by unit tests
 against fixtures; they must be re-checked against the real meeting link in the
 live phase (see docs/QUESTIONS.md).
@@ -38,17 +38,23 @@ ASSOC_CALL_TO_DEAL = 206
 
 
 def uk_phone_variants(phone: str) -> list[str]:
-    """Return the phone in both E.164 and UK national forms (SPEC §9).
+    """Return the phone in the forms HubSpot contacts are stored in (SPEC §9).
 
-    HubSpot stores numbers as entered, so a lookup tries both. Order preserved,
-    duplicates removed.
+    HubSpot stores numbers as entered, so a lookup tries compact E.164, UK national,
+    and spaced E.164 "+44 XXXX XXXXXX" (existing contacts use the spaced form). Order
+    preserved, duplicates removed.
     """
     p = phone.strip().replace(" ", "")
     out = [p]
+    nsn = None
     if p.startswith("+44"):
-        out.append("0" + p[3:])
+        nsn = p[3:]
+        out.append("0" + nsn)
     elif p.startswith("0"):
-        out.append("+44" + p[1:])
+        nsn = p[1:]
+        out.append("+44" + nsn)
+    if nsn and len(nsn) >= 5:
+        out.append(f"+44 {nsn[:4]} {nsn[4:]}")
     return list(dict.fromkeys(out))
 
 
@@ -98,9 +104,9 @@ class HubSpotClient:
     @classmethod
     def from_env(cls, **overrides) -> HubSpotClient:
         """Build from the HUBSPOT_* variables in the environment (SPEC §9)."""
-        token = os.environ.get("HUBSPOT_PRIVATE_APP_TOKEN")
+        token = os.environ.get("HUBSPOT_SERVICE_KEY")
         if not token:
-            raise HubSpotError(0, "HUBSPOT_PRIVATE_APP_TOKEN is not set")
+            raise HubSpotError(0, "HUBSPOT_SERVICE_KEY is not set")
         return cls(
             token=token,
             meeting_slug=os.environ.get("HUBSPOT_MEETING_LINK_SLUG"),

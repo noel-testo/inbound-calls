@@ -2,6 +2,24 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-04 — HubSpot provisioning & auth decisions (Noel)
+
+- **Auth is HubSpot Service Keys, not a legacy private app:** `HUBSPOT_SERVICE_KEY` for the agent
+  runtime, `HUBSPOT_PROVISION_KEY` for `scripts/provision_hubspot.py`. `.env.example` updated; the
+  client's `from_env` reads `HUBSPOT_SERVICE_KEY`.
+- **No new pipeline** (Starter plan allows two). Use the existing **"Sales Pipeline"**
+  (`HUBSPOT_DEAL_PIPELINE_ID=default`) and map the receptionist's outcomes onto existing stages:
+  **Qualified – not booked → "Lead Identified" (6139983093)**, **Discovery booked → "Initial
+  Contact" (6139983094)**. Stage IDs live in `.env`.
+- **Expert:** Noel Sesto, owner id **99735767** (`HUBSPOT_EXPERT_OWNER_ID`). Meeting-link slug and
+  the Service Keys to follow from Noel.
+- **`scripts/provision_hubspot.py`:** idempotent, create-only (never renames/deletes). Checks the
+  property group first via the dated properties API `GET /crm/properties/2026-09/contacts/groups`,
+  then creates the group + the 12 `cf_` properties per SPEC §9 if missing. `--dry-run` prints the plan
+  with no API calls or key. Pipeline/stages are not created — only echoed for confirmation.
+- **Phone lookup** now also tries the spaced **"+44 XXXX XXXXXX"** form (existing contacts are stored
+  spaced), alongside compact E.164 and UK national.
+
 ## 2026-10-04 — Phase 1 HubSpot client scaffold (Claude)
 
 - **Thin async `httpx` client**, not the `hubspot-api-client` SDK ("the best part is no part"). The
@@ -17,7 +35,7 @@ Record every architecture decision and every pinned version here. One entry per 
   `upsert_contact` matches by email then phone; phone lookups try E.164 + UK national (SPEC §9/§11).
 - **Tests** use `httpx.MockTransport` (no new test dependency) and assert the exact request payloads;
   `pytest` gets `pythonpath = ["."]` so `agent` imports without packaging. 11 tests pass; ruff clean.
-- **To validate in the live phase** (blocked on the expert's meeting-link slug + private-app token):
+- **To validate in the live phase** (blocked on the expert's meeting-link slug + Service Keys):
   the scheduler availability JSON shape (`linkAvailability.linkAvailabilityByDuration[*].availabilities[*]`,
   parsed defensively) and the booking `formFields` names, which depend on the link's form config.
 
