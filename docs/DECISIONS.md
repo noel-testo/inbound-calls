@@ -2,6 +2,25 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-04 — Phase 1 HubSpot client scaffold (Claude)
+
+- **Thin async `httpx` client**, not the `hubspot-api-client` SDK ("the best part is no part"). The
+  agent's tools are async with tight timeouts; one small wrapper (`agent/hubspot/client.py`) over the
+  REST API is leaner and fully mockable. Added `httpx>=0.27` (locked 0.28.1).
+- **Endpoints:** CRM objects on stable `/crm/v3/objects/...` (contacts/companies/deals/calls search,
+  create, patch, associations); discovery-call booking on the **versioned** Meetings scheduler
+  `/scheduler/2026-03/meetings/meeting-links/book/...` (availability via `GET book/{slug}`, booking via
+  `POST book`). HubSpot sends the confirmation email + calendar invite.
+- **Association type IDs** (category `HUBSPOT_DEFINED`): deal→contact 3, deal→company 5,
+  call→contact 194, call→company 182, call→deal 206.
+- **Client raises `HubSpotError`; the tool layer decides fail-soft vs blocking** (SPEC §5.1/§7).
+  `upsert_contact` matches by email then phone; phone lookups try E.164 + UK national (SPEC §9/§11).
+- **Tests** use `httpx.MockTransport` (no new test dependency) and assert the exact request payloads;
+  `pytest` gets `pythonpath = ["."]` so `agent` imports without packaging. 11 tests pass; ruff clean.
+- **To validate in the live phase** (blocked on the expert's meeting-link slug + private-app token):
+  the scheduler availability JSON shape (`linkAvailability.linkAvailabilityByDuration[*].availabilities[*]`,
+  parsed defensively) and the booking `formFields` names, which depend on the link's form config.
+
 ## 2026-10-03 — Initial architecture (Noel, with Claude)
 
 - **Six components only:** RingCentral, FreeSWITCH (temporary), LiveKit, Neon, Windmill, HubSpot. "The best part is no part."
