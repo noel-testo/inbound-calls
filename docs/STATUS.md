@@ -1,7 +1,7 @@
 # Status
 
-**Current phase:** 0 — Scaffold and stack — *code complete & merged; host bring-up outstanding*
-**Last updated:** 2026-10-03
+**Current phase:** 0 — Scaffold and stack — *code complete & merged, production seeded; host bring-up outstanding*
+**Last updated:** 2026-10-04
 
 ## Done
 - Spec, config templates, schema and test suite written.
@@ -15,16 +15,16 @@
 - **Neon project** (created by Noel): "Inbound Calls" `wandering-union-75946614`, London (aws-eu-west-2), PG 18.6, default branch `production` `br-steep-breeze-za0ra5h9`, databases `receptionist` + `windmill` + default `neondb`.
 - **PR #1 merged** (squash `0ed4edf`) → `main`; remote + local branch deleted, main pulled locally. https://github.com/noel-testo/inbound-calls/pull/1
 - **CI green** — `Neon Preview Branch` run succeeded (https://github.com/noel-testo/inbound-calls/actions/runs/37158589767). On a fresh preview branch it applied `db/schema.sql` and ran `seed_config.py`. Verified on that branch: `config`=3 keys (greeting, prompt, scoring), `terms`=26, 6 tables, 3 enums. **migrate + seed proven end-to-end.**
-- **Phase 0 code is done and on `main`.** Only the two host items below remain.
+- **Phase 0 code is done and on `main`.**
+- **Production `receptionist` seeded** (2026-10-04): ran `db/migrate.py` + `scripts/seed_config.py` against the persistent `production` branch (unpooled connection). Verified `select count(*) from config` = **3** (greeting, scoring, prompt); 26 terms, 5 TODO placeholders skipped. The database half of the DoD is met on the persistent store. Only the host bring-up below remains.
 
-## Next — two host items to close Phase 0 DoD
-1. **Bring up the stack on the host:** create `.env` from `.env.example` (connection strings for `ep-crimson-silence-zamkm67n...`, databases `receptionist`/`windmill`; set `WINDMILL_DOMAIN` + DNS), then `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`. DoD: five containers healthy, Windmill UI reachable over TLS.
-2. **Seed the persistent `receptionist`** (the `production` branch): `uv run python db/migrate.py` then `uv run python scripts/seed_config.py` with that `.env`. CI only seeds ephemeral PR branches; the attached Neon MCP is read-only, so this is a host step. DoD: `select count(*) from config` returns the seeded keys.
+## Next — one host item to close Phase 0 DoD
+- **Bring up the stack on the host:** on the server, with `.env` present, run `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`. DoD: all five containers healthy and the Windmill UI reachable over HTTPS.
 
 Then → Phase 1 (HubSpot).
 
 ## Blocked
-- Both items above need host access. Item 1 also needs the Windmill public hostname/DNS for Caddy TLS (`WINDMILL_DOMAIN`).
+- **Host bring-up:** blocked until a host exists and `WINDMILL_DOMAIN` has DNS pointing at it (Caddy needs the hostname to obtain a TLS cert). Nothing else outstanding for Phase 0.
 - Expert identity and HubSpot meeting link (Phase 1).
 - RingCentral admin access and the receptionist extension (Phase 2).
 
