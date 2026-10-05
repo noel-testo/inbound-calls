@@ -23,8 +23,12 @@ Record every architecture decision and every pinned version here. One entry per 
 - **Slots response shape:** `{"data": {"YYYY-MM-DD": [{"start": ISO+offset}, …]}}`; the client filters
   to [from, to] and normalises starts to UTC "…Z".
 - **Phase 1 DoD now:** a test script books a real Cal.com slot → it appears in Google Calendar →
-  confirmation email arrives (plus the unit tests, done). `BOOKINGS_VERSION` 2024-08-13 to be confirmed
-  by that live test.
+  confirmation email arrives (plus the unit tests).
+- **Live booking verified 2026-10-05:** booked + cancelled a real slot via the API; event appeared on
+  Noel's Google Calendar with Company/phone/notes populated. **`BOOKINGS_VERSION` 2024-08-13 confirmed**
+  for both create and cancel (`POST /v2/bookings/{uid}/cancel`). **`attendeePhoneNumber` is REQUIRED**
+  on event 7103844 and is validated (libphonenumber) — the agent must pass the caller's CLI as the
+  attendee phone; `book_meeting` sends it as `attendee.phoneNumber`.
 
 ## 2026-10-04 — HubSpot provisioning & auth decisions (Noel)
 

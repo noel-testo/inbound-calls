@@ -23,9 +23,10 @@
 - **Bring up the stack on the host:** on the server, with `.env` present, run `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`. DoD: all five containers healthy and the Windmill UI reachable over HTTPS.
 
 ## Phase 1 — HubSpot CRM + Cal.com booking (in progress)
-- **Done:** `agent/hubspot/` CRM client, `agent/calcom/` booking client, and `scripts/provision_hubspot.py` scaffolded + unit-tested (18 tests). Booking = Cal.com event 7103844 ("LiftPulse Trial", 15-min, auto-confirmed). HubSpot pipeline = existing "Sales Pipeline" (`default`); stages Lead Identified (6139983093) / Initial Contact (6139983094); expert Noel Sesto (owner 99735767).
-- **Next:** run the live Cal.com booking test (CALCOM key is present) to confirm the booking payload + `BOOKINGS_VERSION`; run `scripts/provision_hubspot.py` once `HUBSPOT_PROVISION_KEY` is issued; later wire both clients into the agent tools (Phase 3).
-- **DoD:** a test script books a real Cal.com slot → it appears in Google Calendar → confirmation email arrives, plus unit tests against fixtures (done).
+- **Done:** `agent/hubspot/` CRM client, `agent/calcom/` booking client, and `scripts/provision_hubspot.py` scaffolded + unit-tested (17 tests). Booking = Cal.com event 7103844 ("LiftPulse Trial", 15-min, auto-confirmed). HubSpot pipeline = existing "Sales Pipeline" (`default`); stages Lead Identified (6139983093) / Initial Contact (6139983094); expert Noel Sesto (owner 99735767).
+- **Live Cal.com booking verified (2026-10-05):** booked the 2026-10-06 09:00Z slot as "Noel Test" / noel@controlfreq.co.uk / Company "ControlFreq Test" (uid `mL3SW3Q5mM1s5ghMEseT85`, status accepted) → it appeared on Noel's Google Calendar with Company/phone/notes populated → cancelled via `POST /v2/bookings/{uid}/cancel`. **`BOOKINGS_VERSION` 2024-08-13 confirmed** (create + cancel). **`attendeePhoneNumber` is a required, validated field** on this event — the agent must pass the caller's CLI as the attendee phone. Confirmation email not checked here (Gmail MCP token expired); the calendar invite implies it was sent — verify the inbox.
+- **Next:** run `scripts/provision_hubspot.py` once `HUBSPOT_PROVISION_KEY` is issued; wire both clients into the agent tools (Phase 3).
+- **DoD:** ✅ real Cal.com booking appears in Google Calendar (email send implied — confirm inbox). Unit tests pass. HubSpot CRM provisioning + upserts still pending the Service Keys.
 
 ## Blocked
 - **Phase 0 host bring-up:** blocked until a host exists and `WINDMILL_DOMAIN` has DNS pointing at it (Caddy needs the hostname for a TLS cert).

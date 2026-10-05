@@ -152,7 +152,8 @@ class CalComClient:
 
         `organisation` is required (the `Company` booking field is required); `title`
         (required, hidden) defaults to "Intro call – <organisation>"; `notes` carries
-        the qualification summary.
+        the qualification summary. `phone` is required for event 7103844
+        (`attendeePhoneNumber` is a required, validated field) — pass the caller's CLI.
         """
         start_utc = _to_utc_z(start_iso)
         attendee = {"name": name, "email": email, "timeZone": timezone_name, "language": "en"}
