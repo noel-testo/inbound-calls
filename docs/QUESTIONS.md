@@ -12,12 +12,17 @@ questions are raised in the session immediately and recorded here afterwards.
 - **Scoring:** confirm or change weights and the threshold (50) in `config/scoring.yaml`. *Default:* as shipped.
 - **Retention:** recordings 90 days; transcripts kept indefinitely? *Default:* 90 / indefinite.
 - **Host:** existing server or a new UK VPS; who holds root. *Default:* new VPS, 4 vCPU / 8 GB.
-- **RingCentral:** admin access to add the existing-phone device and edit call-handling rules; the receptionist extension number. *Default:* none; blocking for Phase 2.
+- **RingCentral divert:** admin access to set the after-hours / no-answer rules to divert the main number externally to the Telnyx DID (no SIP device or receptionist extension needed now). *Default:* none; blocking for Phase 2.
 - **n8n:** export of the current RingCentral missed-call workflow JSON. *Default:* none; blocking for Phase 4.
 - **Terms list:** product names, staff names, major client and site names for `config/terms.yaml`. *Default:* placeholders.
 - **Apollo → HubSpot sync:** confirm it is one-way (enrichment only) so the agent is the only thing creating deals. *Default:* assume yes.
 - **Windmill public hostname + DNS** for Caddy TLS (`WINDMILL_DOMAIN`). *Default:* a subdomain on a ControlFreq domain (e.g. `windmill.controlfreq.…`) A-record'd to the host; set in `.env` at bring-up.
-- **SIP topology (Phase 2):** FreeSWITCH runs `network_mode: host` but `livekit-sip` is on the compose bridge and unpublished — they can't talk as drawn. *Default:* publish `livekit-sip` 5060/udp + its RTP range bound to the Docker bridge gateway only, firewalled off the public interface, and point FreeSWITCH's dialplan at that address. Revisit in Phase 2; no action needed now.
+- **LiveKit SIP exposure (Phase 2):** with Telnyx as the trunk, `livekit-sip` must be reachable from Telnyx — publish its SIP port + RTP range on the host, firewalled to Telnyx's IP ranges only. *Default:* IP-allowlist Telnyx's documented SIP/media ranges on the trunk and host firewall; confirm exact ranges when the Telnyx account is live.
+- **Telnyx account + DID (Phase 2):** account upgrade is blocked on Telnyx support; no credentials yet. Needed: a UK DID + a SIP connection pointing at LiveKit SIP. *Default:* none; blocking for the Phase 2 live test.
+- **UK number type:** geographic (01/02) vs non-geographic/national (03) vs mobile (07) for the Telnyx DID. *Default:* an 03 non-geographic number (nationwide, no area tie); confirm with Noel.
+- **CLI on RingCentral divert:** does RingCentral present the *original caller's* CLI when it diverts externally to Telnyx, or its own number? The HubSpot lookup needs the original. *Default:* assume original CLI is passed; verify on the first live test and check for a RingCentral/Telnyx setting if not.
+- **UK regulatory:** Ofcom CLI/presentation rules, 999/112 emergency-call handling (whether the AI line must support/route them), and number-registration obligations. *Default:* the AI line is inbound-only and not advertised as an emergency contact; the greeting's emergency wording directs callers elsewhere; confirm obligations before go-live.
+- **Recording approach (Phase 2/3):** LiveKit track egress to host disk vs Telnyx call recording (SPEC §8). *Default:* LiveKit egress to `RECORDINGS_DIR` to keep recordings on the host per SPEC §7 retention; revisit if egress is too heavy.
 
 ## Answered
 

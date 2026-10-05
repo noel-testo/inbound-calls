@@ -1,6 +1,6 @@
 # Scripted test calls
 
-Run every call over a real RingCentral leg from a known phone. Record the result in `docs/STATUS.md` with the
+Run every call over a real Telnyx leg from a known phone — dial the Telnyx number directly, or (for the divert path) the RingCentral main number after-hours. Record the result in `docs/STATUS.md` with the
 `call_id`. "Core" calls (1–10) gate Phase 3; all twenty gate Phase 5.
 
 Expected for every call: greeting spoken verbatim with AI disclosure and recording notice; median turn latency

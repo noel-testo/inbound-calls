@@ -1,6 +1,6 @@
 # Inbound Calls — host stack. Phase 0: pin every image tag and record it in docs/DECISIONS.md.
-# All secrets come from ../.env. Nothing LiveKit-related is published to the host network except
-# what FreeSWITCH needs to reach RingCentral.
+# All secrets come from ../.env. Ingress is a Telnyx SIP trunk into livekit-sip (Phase 2);
+# RingCentral diverts the office number to the Telnyx DID. No FreeSWITCH.
 
 services:
   redis:
@@ -36,17 +36,8 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
     depends_on: [livekit, redis]
-    # Not published: only FreeSWITCH sends INVITEs, on the compose network.
-
-  freeswitch:
-    build: ./freeswitch              # Phase 2: Dockerfile + pinned base added here
-    restart: unless-stopped
-    network_mode: host               # simplest correct NAT behaviour for a registered device + RTP
-    env_file: ../.env
-    volumes:
-      - ./freeswitch/conf:/etc/freeswitch:ro
-      - ${RECORDINGS_DIR:-/var/recordings}:/var/recordings
-    # Host firewall: allow the configured RTP range (udp) inbound; SIP is outbound-registered.
+    # Phase 2: reachable from Telnyx only — publish the SIP port + RTP range on the host,
+    # firewalled to Telnyx's IP ranges. The inbound trunk authenticates Telnyx.
 
   agent:
     build: ../agent                  # Phase 2/3: Dockerfile added here

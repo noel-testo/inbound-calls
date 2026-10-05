@@ -16,7 +16,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 
 ## 2. Design principles
 
-1. **The best part is no part.** Six components and nothing else: RingCentral, FreeSWITCH (temporary), LiveKit, Neon, Windmill, HubSpot. Slack is reached only through HubSpot's native integration and Windmill's failure alerts.
+1. **The best part is no part.** Six components and nothing else: RingCentral, Telnyx, LiveKit, Neon, Windmill, HubSpot. Slack is reached only through HubSpot's native integration and Windmill's failure alerts. (Telephony ingress is a Telnyx SIP trunk into LiveKit SIP; FreeSWITCH and RingCentral SIP registration were dropped on 2026-10-05 — see DECISIONS.)
 2. **Synchronous in the agent, asynchronous in Windmill.** Mid-call tools are Python functions in the agent worker calling HubSpot and Neon directly. Post-call work and anything with a human in the loop runs in Windmill. Nothing mid-call calls Windmill.
 3. **HubSpot is the system of record** for contacts, companies, deals, meetings and call engagements. **Neon is the receptionist's store**: calls, transcripts, events, config, terms. The only overlap is linking IDs.
 4. **Providers behind interfaces.** STT, LLM and TTS are hosted providers in the MVP, each behind an interface in `agent/providers/`. The LLM is reached only through an OpenAI-compatible endpoint so moving to a self-hosted model on vLLM is a URL and model-name change.
@@ -27,7 +27,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 ## 3. Scope
 
 ### In scope (MVP)
-- Ingress: after-hours rule and no-answer forwarding on the main number route to the receptionist extension.
+- Ingress: RingCentral after-hours rule and no-answer forwarding on the main office number divert the call externally to a Telnyx UK number, which routes over a Telnyx SIP trunk to LiveKit SIP. Caller ID (CLI) is preserved end to end so the HubSpot phone lookup works.
 - Intents: `new_enquiry`, `existing_customer`, `supplier_or_sales`, `other`.
 - Pre-call: CLI lookup in HubSpot.
 - Qualification against the schema in §6, scoring per `config/scoring.yaml`.
@@ -35,7 +35,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 - Message-taking for existing customers and unqualified enquiries.
 - Post-call: extraction, HubSpot upsert, deal creation when qualified, call engagement with summary, Neon write.
 - Guardrails: max duration, silence handling, no pricing, no promises, AI disclosure.
-- Recording on the FreeSWITCH leg, stored on host disk with retention.
+- Call recording (capture leg TBD — see §8), stored on host disk with retention.
 - Migration of the RingCentral missed-call Slack alert from n8n into Windmill, then n8n switched off.
 
 ### Out of scope (MVP) — see §15
@@ -44,11 +44,9 @@ Live transfer to a human; daytime overflow before after-hours has run clean; out
 ## 4. Architecture
 
 ```
-Caller ──PSTN──▶ RingCentral ──(after-hours / no-answer)──▶ ext "AI Receptionist"
-                                                              │ SIP (registered device)
-                                                              ▼
-                                                        FreeSWITCH ──record_session──▶ /var/recordings
-                                                              │ SIP INVITE (private network)
+Caller ──PSTN──▶ RingCentral (office PBX) ──(after-hours / no-answer divert)──▶ Telnyx UK number
+                                                              │ Telnyx SIP trunk, CLI preserved
+                                                              │ (LiveKit SIP IP-restricted to Telnyx)
                                                               ▼
                                                         LiveKit SIP ──▶ LiveKit server ──▶ room per call
                                                                                            │
@@ -69,9 +67,9 @@ Caller ──PSTN──▶ RingCentral ──(after-hours / no-answer)──▶ 
 
 | Component | Role | Notes |
 |---|---|---|
-| RingCentral | Phones for humans; ingress | One "existing phone" device = the receptionist extension. After-hours rule and no-answer forwarding on the main number target it. Later: direct extension numbers for transfer. |
-| FreeSWITCH | Registration bridge | Registers to RingCentral with the device's SIP credentials (LiveKit cannot REGISTER). Bridges inbound calls to LiveKit SIP. Records the call. Removed when LiveKit gains REGISTER support. |
-| LiveKit | Voice transport | `livekit-server` + `livekit-sip` + Redis. One inbound trunk accepting INVITEs only from FreeSWITCH. One dispatch rule: every call → agent `inbound-receptionist`, room `call-<uuid>`. |
+| RingCentral | Office phone system; ingress divert | Existing office PBX. The after-hours rule and no-answer forwarding on the main number divert the call externally to the Telnyx DID. No SIP registration, no receptionist device. Later: a route for human transfer. |
+| Telnyx | SIP trunk + DID | A UK phone number (DID) on a Telnyx SIP connection. Receives the diverted PSTN call and routes it to LiveKit SIP over the internet, IP-restricted to Telnyx (and/or credentialed). Preserves CLI. Call-recording approach TBD (§8). |
+| LiveKit | Voice transport | `livekit-server` + `livekit-sip` + Redis. One inbound trunk accepting INVITEs only from Telnyx. One dispatch rule: every call → agent `inbound-receptionist`, room `call-<uuid>`. |
 | Agent worker | The receptionist | Python, LiveKit Agents. Pipeline and tools in §7–§8. |
 | Neon | Store | Project with two databases: `receptionist` (schema in `db/schema.sql`) and `windmill`. |
 | Windmill | Async + human-in-the-loop | Self-hosted on the host, database on Neon. Flow `post_call`, script `rc_missed_call_alert`, schedule `retention`. |
@@ -93,8 +91,8 @@ windmill/         Python scripts and exported flow definitions
   retention/
 infra/
   docker-compose.yml
-  freeswitch/conf/  external profile gateway (template), dialplan, vars
-  livekit/          livekit.yaml, sip.yaml, trunk and dispatch JSON
+  livekit/          livekit.yaml, sip.yaml, inbound trunk + dispatch JSON
+  telnyx/           SIP connection + DID notes (provisioned in the Telnyx portal; Phase 2)
   caddy/            Caddyfile (TLS for Windmill UI)
 db/
   schema.sql, migrate.py
@@ -170,7 +168,7 @@ State-gated availability: `check_availability` and `book_meeting` are registered
 - **TTS:** Cartesia or ElevenLabs, a British English voice chosen by Noel; streaming. Interface `TTSProvider`; later `kokoro_local`.
 - **Noise cancellation:** none in MVP (self-hosted LiveKit; G.711 narrowband audio). Revisit with RNNoise or DeepFilterNet if needed.
 - **Latency budget:** ≤ 800 ms from caller end-of-turn to first audio. Measured and logged per turn (`events.type = turn_latency`).
-- **Recording:** `record_session` on the FreeSWITCH bridged leg to `RECORDINGS_DIR/<call_id>.wav`. Path written to Neon `calls.recording_path`.
+- **Recording:** FreeSWITCH is gone, so the recording leg is **TBD** — either LiveKit track egress to `RECORDINGS_DIR/<call_id>.wav` on the host, or Telnyx call recording fetched post-call. Decision pending (see §16 / `docs/QUESTIONS.md`). `calls.recording_path` still holds the stored path once chosen.
 - **Session end:** the agent POSTs `{call_id, room, started_at, ended_at, caller_e164, cli_present, intent, outcome, transcript[], extraction_draft, tool_results, recording_path}` to `WINDMILL_POST_CALL_WEBHOOK` with bearer `WINDMILL_WEBHOOK_TOKEN`. Retries 3× with backoff; on final failure the payload is written to Neon `events` for the `retention` job to replay.
 
 ## 9. HubSpot configuration
@@ -210,12 +208,12 @@ Self-hosted on the host, Postgres on Neon (`WINDMILL_DATABASE_URL`). Python scri
 ## 12. Infrastructure
 
 - **Host:** Ubuntu 24.04, 4 vCPU / 8 GB, UK region, public IPv4. Docker Compose, single file `infra/docker-compose.yml`.
-- **Services:** `redis`, `livekit`, `livekit-sip`, `freeswitch`, `agent`, `windmill-server`, `windmill-worker`, `caddy`.
+- **Services:** `redis`, `livekit`, `livekit-sip`, `agent`, `windmill-server`, `windmill-worker`, `caddy`. (No FreeSWITCH — Telnyx is an external SIP trunk, not a container.)
 - **Network:**
-  - FreeSWITCH external profile registers outbound to RingCentral; its RTP range (e.g. 16384–16484/udp) open inbound on the host firewall; `FS_EXTERNAL_IP` set so SDP advertises the public IP.
-  - LiveKit SIP and its RTP stay on the compose network; the inbound trunk allows only FreeSWITCH's address. Nothing LiveKit-related is exposed publicly.
+  - LiveKit SIP must be reachable from Telnyx: publish its SIP signalling port and RTP range on the host, firewalled to Telnyx's SIP/media IP ranges only. The inbound trunk authenticates Telnyx (IP allowlist, and/or SIP credentials).
+  - CLI is carried in the SIP `From` / `P-Asserted-Identity` header from Telnyx and preserved into the room so `lookup_caller` can use it.
   - Caddy terminates TLS for the Windmill UI and nothing else.
-- **Secrets:** `.env` on the host (mode 0600); Windmill variables for keys used by flows. The FreeSWITCH gateway XML is rendered from a template at container start; the rendered file is git-ignored.
+- **Secrets:** `.env` on the host (mode 0600); Windmill variables for keys used by flows. Telnyx SIP credentials / API key live in `.env` (and Windmill variables where a flow needs them), never in the repo.
 - **Backups:** Neon handles the database. Recordings are ephemeral by policy. The repo is the configuration.
 - **Observability:** JSON logs to stdout; per-turn latency, tool latency and errors in Neon `events`. A SQL view `calls_today` is enough for MVP.
 
@@ -234,7 +232,7 @@ All are seeded into Neon by `scripts/seed_config.py`; the agent reads from Neon 
 
 **Phase 1 — HubSpot.** `provision_hubspot.py` creates properties and pipeline; `agent/hubspot/` client with `search_contact_by_phone`, `upsert_contact`, `upsert_company`, `create_deal`, `create_call`, `get_availability`, `book_meeting`. *Done when:* a test script books a real meeting on the expert's link, it appears in Google Calendar, the confirmation email arrives, and unit tests pass against recorded fixtures.
 
-**Phase 2 — Telephony.** FreeSWITCH registers to RingCentral; dialplan bridges to LiveKit SIP with caller ID preserved and `record_session` on; LiveKit trunk and dispatch rule provisioned by script; a minimal agent speaks one fixed sentence and hangs up. *Done when:* dialling the receptionist extension from a RingCentral desk phone plays the sentence, the room appears in LiveKit, the recording file exists, and the Neon `calls` row shows the correct CLI.
+**Phase 2 — Telephony.** A Telnyx UK number on a SIP connection routes inbound calls to LiveKit SIP (IP-restricted to Telnyx), CLI preserved; the LiveKit inbound trunk + dispatch rule are provisioned by `scripts/provision_livekit.py`; a minimal agent speaks one fixed sentence and hangs up. RingCentral's after-hours / no-answer divert to the Telnyx number is configured. *Done when:* dialling the Telnyx number plays the sentence, the room appears in LiveKit, and the Neon `calls` row shows the correct CLI — both dialled directly and via the RingCentral divert. (Recording verified once the §8 approach is chosen.)
 
 **Phase 3 — Agent.** Full pipeline (§8), prompt, tools (§7), guardrails (§5.1), dictation mode, latency logging. *Done when:* the ten core calls in `docs/TEST-CALLS.md` pass over a real RingCentral call, median turn latency ≤ 800 ms, and no tool error leaks into speech.
 
@@ -244,13 +242,12 @@ All are seeded into Neon by `scripts/seed_config.py`; the agent reads from Neon 
 
 ## 15. After the MVP (not now)
 
-1. Live warm transfer when the expert is available: calendar + RingCentral presence check, SIP REFER through FreeSWITCH to the extension, context pushed to Slack before pickup. Unlocks daytime traffic.
+1. Live warm transfer when the expert is available: availability check, then a SIP transfer via Telnyx/LiveKit (or a RingCentral route) to a human, context pushed to Slack before pickup. Unlocks daytime traffic.
 2. Self-learning knowledge base: unanswered questions → Neon `kb_queue` → Windmill approval step → Slack approve/edit → `kb_entries` with pgvector → retrieval tool in the agent.
 3. Inbox: Windmill App over Neon (calls, transcript, audio, tags, KB queue).
 4. Outbound: HubSpot form submission → Windmill → callback within minutes; PSTN switch-off campaign to the existing base.
 5. Self-hosted inference: `whisper_local`, `kokoro_local`, vLLM behind `LLM_BASE_URL`; GPU host; fine-tune on reviewed transcripts.
-6. Remove FreeSWITCH when LiveKit SIP supports REGISTER.
-7. Recording URLs into HubSpot via signed links.
+6. Recording URLs into HubSpot via signed links.
 
 ## 16. Open questions
 
