@@ -81,9 +81,10 @@ class CalComClient:
     async def _request(
         self, method: str, path: str, version: str, *, timeout: float | None = None, **kw
     ) -> dict:
+        eff_timeout = httpx.USE_CLIENT_DEFAULT if timeout is None else timeout
         try:
             resp = await self._client.request(
-                method, path, headers={"cal-api-version": version}, timeout=timeout, **kw
+                method, path, headers={"cal-api-version": version}, timeout=eff_timeout, **kw
             )
         except httpx.TimeoutException as e:
             raise CalComError(0, f"request to {path} timed out") from e

@@ -12,7 +12,7 @@ import json
 import httpx
 import pytest
 
-from agent.hubspot import HubSpotClient, HubSpotError, uk_phone_variants
+from agent.hubspot import HubSpotClient, HubSpotError
 
 
 class Recorder:
@@ -42,25 +42,6 @@ def make_client(recorder: Recorder, **kw) -> HubSpotClient:
         headers={"Authorization": "Bearer test", "Content-Type": "application/json"},
     )
     return HubSpotClient("test", client=ac, **kw)
-
-
-def test_uk_phone_variants():
-    assert uk_phone_variants("+447700900123") == [
-        "+447700900123",
-        "07700900123",
-        "+44 7700 900123",
-    ]
-    assert uk_phone_variants("07700900123") == [
-        "07700900123",
-        "+447700900123",
-        "+44 7700 900123",
-    ]
-    assert uk_phone_variants("+13105551234") == ["+13105551234"]
-    assert uk_phone_variants(" 077 00900123 ") == [
-        "07700900123",
-        "+447700900123",
-        "+44 7700 900123",
-    ]
 
 
 async def test_search_contact_by_phone_found():
@@ -100,16 +81,13 @@ async def test_search_contact_by_phone_found():
         "last_summary": "Prior lift fault logged.",
     }
     sent = rec.body(0)
+    assert len(sent["filterGroups"]) == 2
     pairs = {
         (g["filters"][0]["propertyName"], g["filters"][0]["value"]) for g in sent["filterGroups"]
     }
     assert pairs == {
-        ("phone", "+447700900123"),
-        ("phone", "07700900123"),
-        ("phone", "+44 7700 900123"),
-        ("mobilephone", "+447700900123"),
-        ("mobilephone", "07700900123"),
-        ("mobilephone", "+44 7700 900123"),
+        ("hs_searchable_calculated_phone_number", "7700900123"),
+        ("hs_searchable_calculated_mobile_number", "7700900123"),
     }
     await client.aclose()
 

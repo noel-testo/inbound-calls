@@ -31,25 +31,24 @@ ASSOC_CALL_TO_COMPANY = 182
 ASSOC_CALL_TO_DEAL = 206
 
 
-def uk_phone_variants(phone: str) -> list[str]:
-    """Return the phone in the forms HubSpot contacts are stored in (SPEC §9).
+PHONE_SEARCH_PROPS = (
+    "hs_searchable_calculated_phone_number",
+    "hs_searchable_calculated_mobile_number",
+)
 
-    HubSpot stores numbers as entered, so a lookup tries compact E.164, UK national,
-    and spaced E.164 "+44 XXXX XXXXXX" (existing contacts use the spaced form). Order
-    preserved, duplicates removed.
+
+def _national_number(phone: str) -> str:
+    """UK national significant number: the digits minus +44 or a leading 0 (SPEC §9).
+
+    HubSpot's calculated searchable phone properties normalise formatting, so a lookup
+    matches on this regardless of how the number was entered.
     """
     p = phone.strip().replace(" ", "")
-    out = [p]
-    nsn = None
     if p.startswith("+44"):
-        nsn = p[3:]
-        out.append("0" + nsn)
-    elif p.startswith("0"):
-        nsn = p[1:]
-        out.append("+44" + nsn)
-    if nsn and len(nsn) >= 5:
-        out.append(f"+44 {nsn[:4]} {nsn[4:]}")
-    return list(dict.fromkeys(out))
+        return p[3:]
+    if p.startswith("0"):
+        return p[1:]
+    return p
 
 
 class HubSpotClient:
@@ -103,8 +102,9 @@ class HubSpotClient:
         await self.aclose()
 
     async def _request(self, method: str, path: str, *, timeout: float | None = None, **kw) -> dict:
+        eff_timeout = httpx.USE_CLIENT_DEFAULT if timeout is None else timeout
         try:
-            resp = await self._client.request(method, path, timeout=timeout, **kw)
+            resp = await self._client.request(method, path, timeout=eff_timeout, **kw)
         except httpx.TimeoutException as e:
             raise HubSpotError(0, f"request to {path} timed out") from e
         if resp.status_code >= 400:
@@ -138,27 +138,34 @@ class HubSpotClient:
         results = data.get("results") or []
         return results[0] if results else None
 
+    async def _find_contact_by_phone(
+        self, phone: str, properties: list[str], *, timeout: float | None = None
+    ) -> dict | None:
+        """Search a contact on HubSpot's calculated searchable phone properties by the
+        UK national number — 2 filter groups (HubSpot allows at most 5)."""
+        nsn = _national_number(phone)
+        filter_groups = [
+            {"filters": [{"propertyName": prop, "operator": "EQ", "value": nsn}]}
+            for prop in PHONE_SEARCH_PROPS
+        ]
+        payload = {"filterGroups": filter_groups, "properties": properties, "limit": 1}
+        data = await self._request("POST", f"{CRM}/contacts/search", json=payload, timeout=timeout)
+        results = data.get("results") or []
+        return results[0] if results else None
+
     async def search_contact_by_phone(
         self, phone_e164: str, *, timeout: float | None = None
     ) -> dict | None:
-        """Find a contact by `phone` or `mobilephone`, trying E.164, UK national and
-        spaced forms (SPEC §7). Returns the compact shape the lookup tool speaks from, or None."""
-        variants = uk_phone_variants(phone_e164)
-        filter_groups = [
-            {"filters": [{"propertyName": prop, "operator": "EQ", "value": v}]}
-            for prop in ("phone", "mobilephone")
-            for v in variants
-        ]
-        payload = {
-            "filterGroups": filter_groups,
-            "properties": ["firstname", "company", "lifecyclestage", "cf_ai_call_summary"],
-            "limit": 1,
-        }
-        data = await self._request("POST", f"{CRM}/contacts/search", json=payload, timeout=timeout)
-        results = data.get("results") or []
-        if not results:
+        """Find a contact by the UK national number against HubSpot's calculated
+        searchable phone/mobile properties (SPEC §7). Returns the compact shape the
+        lookup tool speaks from, or None."""
+        c = await self._find_contact_by_phone(
+            phone_e164,
+            ["firstname", "company", "lifecyclestage", "cf_ai_call_summary"],
+            timeout=timeout,
+        )
+        if not c:
             return None
-        c = results[0]
         props = c.get("properties", {})
         contact_id = c["id"]
         return {
@@ -186,11 +193,8 @@ class HubSpotClient:
             found = await self._search_one("contacts", "email", email, ["email"])
             existing_id = found["id"] if found else None
         if not existing_id and phone:
-            for v in uk_phone_variants(phone):
-                found = await self._search_one("contacts", "phone", v, ["phone"])
-                if found:
-                    existing_id = found["id"]
-                    break
+            found = await self._find_contact_by_phone(phone, ["phone"])
+            existing_id = found["id"] if found else None
         if existing_id:
             data = await self._request(
                 "PATCH", f"{CRM}/contacts/{existing_id}", json={"properties": properties}
