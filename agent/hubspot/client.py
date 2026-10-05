@@ -1,33 +1,27 @@
-"""Thin async HubSpot client (SPEC §9).
+"""Thin async HubSpot client (SPEC §9) — CRM only.
 
-One small wrapper over the HubSpot REST API using httpx — not the heavy
-`hubspot-api-client` SDK ("the best part is no part"). CRM objects use the stable
-`/crm/v3/objects/...` endpoints; the discovery-call booking uses the versioned
-Meetings scheduler endpoints `/scheduler/2026-03/meetings/meeting-links/book/...`.
+One small wrapper over the HubSpot CRM REST API using httpx — not the heavy
+`hubspot-api-client` SDK ("the best part is no part"). Contacts, companies, deals and
+call engagements on the stable `/crm/v3/objects/...` endpoints.
 
-Every method raises `HubSpotError` on failure; the tool layer (SPEC §7) decides
-what fails soft (lookup, message) vs. what blocks the call (availability, booking).
-Returned dicts are compact so the model can speak from them.
+Discovery-call scheduling is NOT here: it moved to Cal.com (`agent/calcom/`) on
+2026-10-05 — there is no HubSpot meeting link. HubSpot remains the system of record
+for sales state (SPEC §2).
 
-Live behaviour (a real booking landing in Google Calendar with a confirmation
-email — the Phase 1 definition of done) is blocked until the expert's meeting-link
-slug and HubSpot Service Key are known. The scheduler
-request/response shapes below follow HubSpot's docs and are covered by unit tests
-against fixtures; they must be re-checked against the real meeting link in the
-live phase (see docs/QUESTIONS.md).
+Every method raises `HubSpotError` on failure; the tool layer (SPEC §7) decides what
+fails soft (lookup, message). Returned dicts are compact so the model can speak from
+them. Live behaviour is blocked until the HubSpot Service Key is issued.
 """
 
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
 
 import httpx
 
 from .errors import HubSpotError
 
 CRM = "/crm/v3/objects"
-SCHEDULER = "/scheduler/2026-03/meetings/meeting-links"
 
 # HubSpot-defined association type IDs (category HUBSPOT_DEFINED).
 ASSOC_DEAL_TO_CONTACT = 3
@@ -58,27 +52,11 @@ def uk_phone_variants(phone: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-def _iso_to_epoch_ms(iso: str) -> int:
-    return int(_parse_iso(iso).timestamp() * 1000)
-
-
-def _epoch_ms_to_iso(ms: int) -> str:
-    return datetime.fromtimestamp(ms / 1000, tz=UTC).isoformat().replace("+00:00", "Z")
-
-
-def _parse_iso(iso: str) -> datetime:
-    dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
-    return dt
-
-
 class HubSpotClient:
     def __init__(
         self,
         token: str,
         *,
-        meeting_slug: str | None = None,
         owner_id: str | None = None,
         pipeline_id: str | None = None,
         stage_discovery_booked: str | None = None,
@@ -87,7 +65,6 @@ class HubSpotClient:
         timeout: float = 10.0,
         client: httpx.AsyncClient | None = None,
     ):
-        self.meeting_slug = meeting_slug
         self.owner_id = owner_id
         self.pipeline_id = pipeline_id
         self.stage_discovery_booked = stage_discovery_booked
@@ -109,7 +86,6 @@ class HubSpotClient:
             raise HubSpotError(0, "HUBSPOT_SERVICE_KEY is not set")
         return cls(
             token=token,
-            meeting_slug=os.environ.get("HUBSPOT_MEETING_LINK_SLUG"),
             owner_id=os.environ.get("HUBSPOT_EXPERT_OWNER_ID"),
             pipeline_id=os.environ.get("HUBSPOT_DEAL_PIPELINE_ID"),
             stage_discovery_booked=os.environ.get("HUBSPOT_STAGE_DISCOVERY_BOOKED"),
@@ -146,7 +122,7 @@ class HubSpotClient:
             return {}
         return resp.json()
 
-    # ---- CRM: contacts -------------------------------------------------------
+    # ---- contacts ------------------------------------------------------------
 
     async def _search_one(
         self, object_type: str, prop: str, value: str, properties: list[str]
@@ -165,8 +141,8 @@ class HubSpotClient:
     async def search_contact_by_phone(
         self, phone_e164: str, *, timeout: float | None = None
     ) -> dict | None:
-        """Find a contact by `phone` or `mobilephone`, trying E.164 and UK national
-        forms (SPEC §7). Returns the compact shape the lookup tool speaks from, or None."""
+        """Find a contact by `phone` or `mobilephone`, trying E.164, UK national and
+        spaced forms (SPEC §7). Returns the compact shape the lookup tool speaks from, or None."""
         variants = uk_phone_variants(phone_e164)
         filter_groups = [
             {"filters": [{"propertyName": prop, "operator": "EQ", "value": v}]}
@@ -235,7 +211,7 @@ class HubSpotClient:
         data = await self._request("POST", f"{CRM}/companies", json={"properties": props})
         return {"company_id": data["id"], "created": True}
 
-    # ---- CRM: deals and calls ------------------------------------------------
+    # ---- deals and calls -----------------------------------------------------
 
     @staticmethod
     def _assoc(to_id: str, type_id: int) -> dict:
@@ -276,131 +252,3 @@ class HubSpotClient:
         body = {"properties": properties, "associations": associations}
         data = await self._request("POST", f"{CRM}/calls", json=body)
         return {"call_id": data["id"]}
-
-    # ---- Meetings scheduler --------------------------------------------------
-
-    async def get_availability(
-        self,
-        from_iso: str,
-        to_iso: str,
-        *,
-        timezone_name: str = "Europe/London",
-        limit: int = 6,
-        timeout: float | None = None,
-    ) -> dict:
-        """Return up to `limit` available slot start times (ISO 8601 UTC) within
-        [from_iso, to_iso] for the expert's meeting link (SPEC §7).
-
-        Blocking tool: keep the timeout tight. Requires `meeting_slug`.
-        """
-        if not self.meeting_slug:
-            raise HubSpotError(0, "meeting_slug is not configured")
-        data = await self._request(
-            "GET",
-            f"{SCHEDULER}/book/{self.meeting_slug}",
-            params={"timezone": timezone_name},
-            timeout=timeout,
-        )
-        start = _parse_iso(from_iso)
-        end = _parse_iso(to_iso)
-        slots: list[str] = []
-        for ms in _iter_slot_millis(data):
-            dt = datetime.fromtimestamp(ms / 1000, tz=UTC)
-            if start <= dt <= end:
-                slots.append(_epoch_ms_to_iso(ms))
-            if len(slots) >= limit:
-                break
-        return {"slots": slots}
-
-    async def book_meeting(
-        self,
-        slot_iso: str,
-        first_name: str,
-        last_name: str,
-        email: str,
-        *,
-        phone: str | None = None,
-        organisation: str | None = None,
-        notes: str | None = None,
-        duration_ms: int = 30 * 60 * 1000,
-        timezone_name: str = "Europe/London",
-        timeout: float | None = None,
-    ) -> dict:
-        """Book `slot_iso` on the expert's meeting link (SPEC §7). HubSpot sends the
-        confirmation email and calendar invite. Returns the start time for read-back.
-
-        `formFields` names depend on the meeting link's form configuration and must
-        be confirmed against the real link in the live phase.
-        """
-        if not self.meeting_slug:
-            raise HubSpotError(0, "meeting_slug is not configured")
-        form_fields = [
-            {"name": "email", "value": email},
-            {"name": "firstName", "value": first_name},
-            {"name": "lastName", "value": last_name},
-        ]
-        if phone:
-            form_fields.append({"name": "phone", "value": phone})
-        if organisation:
-            form_fields.append({"name": "company", "value": organisation})
-        body = {
-            "slug": self.meeting_slug,
-            "duration": duration_ms,
-            "email": email,
-            "firstName": first_name,
-            "lastName": last_name,
-            "startTime": _iso_to_epoch_ms(slot_iso),
-            "timezone": timezone_name,
-            "formFields": form_fields,
-            "likelyAvailableUserIds": [],
-        }
-        if notes:
-            body["formFields"].append({"name": "notes", "value": notes})
-        data = await self._request(
-            "POST",
-            f"{SCHEDULER}/book",
-            params={"timezone": timezone_name},
-            json=body,
-            timeout=timeout,
-        )
-        return {
-            "meeting_id": data.get("id") or data.get("bookId") or data.get("engagementId"),
-            "start_iso": slot_iso,
-            "confirmation_sent": True,
-        }
-
-
-def _iter_slot_millis(data: dict):
-    """Yield slot start times (epoch ms) from a meeting-link availability payload.
-
-    Walks the documented linkAvailability.linkAvailabilityByDuration[*].availabilities[*]
-    shape, falling back to any nested startMillisUtc / startTime keys so a minor
-    response-shape change doesn't silently return nothing.
-    """
-    link = data.get("linkAvailability") or {}
-    by_duration = link.get("linkAvailabilityByDuration") or {}
-    seen_structured = False
-    for bucket in by_duration.values():
-        for slot in bucket.get("availabilities", []) if isinstance(bucket, dict) else []:
-            ms = slot.get("startMillisUtc") or slot.get("startTime")
-            if ms is not None:
-                seen_structured = True
-                yield int(ms)
-    if seen_structured:
-        return
-
-    def walk(node):
-        if isinstance(node, dict):
-            for k, v in node.items():
-                if k in ("startMillisUtc", "startTime") and isinstance(v, (int, float, str)):
-                    try:
-                        yield int(v)
-                    except (TypeError, ValueError):
-                        pass
-                else:
-                    yield from walk(v)
-        elif isinstance(node, list):
-            for item in node:
-                yield from walk(item)
-
-    yield from walk(data)

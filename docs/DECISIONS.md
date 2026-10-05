@@ -2,6 +2,30 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-05 — Discovery-call booking moves to Cal.com (Noel)
+
+- **Booking is Cal.com, not HubSpot Meetings.** No HubSpot meeting link/slug is coming; the HubSpot
+  scheduler scope is dropped. HubSpot stays the CRM system of record (contacts/companies/deals/calls);
+  Cal.com owns scheduling. New provider `agent/calcom/` — recorded per working-rule #2 (a new component
+  needs a reason + a yes; this is Noel's decision).
+- **Removed** `get_availability` / `book_meeting` and all scheduler code from `agent/hubspot/`;
+  `HUBSPOT_MEETING_LINK_SLUG` dropped from `.env.example`.
+- **`agent/calcom/` (Cal.com API v2):** `GET /v2/slots` (cal-api-version **2024-09-04**) for
+  availability; `POST /v2/bookings` (cal-api-version **2024-08-13**) to book. Versions are per-endpoint.
+  A custom `User-Agent` is required — Cal.com's Cloudflare returns error 1010 to the default Python
+  client signature (confirmed live).
+- **Event type 7103844** ("LiftPulse Trial", 15-min, auto-confirmed). Booking-field slugs confirmed
+  live via `GET /v2/event-types/7103844`: attendee name/email/phone are system fields (→ `attendee`
+  object); custom `bookingFieldsResponses` keys are `Company` (required), `title` (required, hidden;
+  defaults to "Intro call – <organisation>"), `notes` (optional; qualification summary).
+- **Config:** `CALCOM_API_KEY` (account noelsesto) + `CALCOM_EVENT_TYPE_ID=7103844` in `.env`. HubSpot
+  Service Keys still to come from Noel.
+- **Slots response shape:** `{"data": {"YYYY-MM-DD": [{"start": ISO+offset}, …]}}`; the client filters
+  to [from, to] and normalises starts to UTC "…Z".
+- **Phase 1 DoD now:** a test script books a real Cal.com slot → it appears in Google Calendar →
+  confirmation email arrives (plus the unit tests, done). `BOOKINGS_VERSION` 2024-08-13 to be confirmed
+  by that live test.
+
 ## 2026-10-04 — HubSpot provisioning & auth decisions (Noel)
 
 - **Auth is HubSpot Service Keys, not a legacy private app:** `HUBSPOT_SERVICE_KEY` for the agent
@@ -26,7 +50,7 @@ Record every architecture decision and every pinned version here. One entry per 
   agent's tools are async with tight timeouts; one small wrapper (`agent/hubspot/client.py`) over the
   REST API is leaner and fully mockable. Added `httpx>=0.27` (locked 0.28.1).
 - **Endpoints:** CRM objects on stable `/crm/v3/objects/...` (contacts/companies/deals/calls search,
-  create, patch, associations); discovery-call booking on the **versioned** Meetings scheduler
+  create, patch, associations). **(Scheduling below superseded 2026-10-05 → Cal.com.)** Discovery-call booking was on the **versioned** Meetings scheduler
   `/scheduler/2026-03/meetings/meeting-links/book/...` (availability via `GET book/{slug}`, booking via
   `POST book`). HubSpot sends the confirmation email + calendar invite.
 - **Association type IDs** (category `HUBSPOT_DEFINED`): deal→contact 3, deal→company 5,

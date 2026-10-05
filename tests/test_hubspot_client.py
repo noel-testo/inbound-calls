@@ -1,7 +1,8 @@
-"""Unit tests for the HubSpot client, against recorded fixtures via httpx.MockTransport.
+"""Unit tests for the HubSpot CRM client, against fixtures via httpx.MockTransport.
 
 No network: a MockTransport routes each (method, path) to a canned response and
-records the request so we can assert the payload the client sends.
+records the request so we can assert the payload the client sends. Scheduling is
+tested separately in test_calcom_client.py (booking moved to Cal.com).
 """
 
 from __future__ import annotations
@@ -98,7 +99,6 @@ async def test_search_contact_by_phone_found():
         "open_deal_count": 2,
         "last_summary": "Prior lift fault logged.",
     }
-    # Searches both phone props across both number formats.
     sent = rec.body(0)
     pairs = {
         (g["filters"][0]["propertyName"], g["filters"][0]["value"]) for g in sent["filterGroups"]
@@ -176,68 +176,6 @@ async def test_create_call_builds_associations():
     body = rec.body(-1)
     assoc = {(a["to"]["id"], a["types"][0]["associationTypeId"]) for a in body["associations"]}
     assert assoc == {("501", 194), ("601", 182), ("d1", 206)}
-    await client.aclose()
-
-
-async def test_get_availability_parses_and_filters():
-    rec = Recorder(
-        {
-            ("GET", "/scheduler/2026-03/meetings/meeting-links/book/disco"): (
-                200,
-                {
-                    "linkAvailability": {
-                        "linkAvailabilityByDuration": {
-                            "1800000": {
-                                "availabilities": [
-                                    {"startMillisUtc": 1760000000000},  # in-window
-                                    {"startMillisUtc": 1760003600000},  # in-window
-                                    {"startMillisUtc": 1770000000000},  # out of window
-                                ]
-                            }
-                        }
-                    }
-                },
-            )
-        }
-    )
-    client = make_client(rec, meeting_slug="disco")
-    out = await client.get_availability("2025-10-09T00:00:00Z", "2025-10-09T23:59:59Z")
-    assert out["slots"] == ["2025-10-09T08:53:20Z", "2025-10-09T09:53:20Z"]
-    await client.aclose()
-
-
-async def test_get_availability_requires_slug():
-    rec = Recorder({})
-    client = make_client(rec)  # no meeting_slug
-    with pytest.raises(HubSpotError):
-        await client.get_availability("2025-10-09T00:00:00Z", "2025-10-09T23:59:59Z")
-    await client.aclose()
-
-
-async def test_book_meeting_sends_epoch_ms_and_reads_back():
-    rec = Recorder(
-        {("POST", "/scheduler/2026-03/meetings/meeting-links/book"): (200, {"id": "mtg-1"})}
-    )
-    client = make_client(rec, meeting_slug="disco")
-    out = await client.book_meeting(
-        "2025-10-09T09:00:00Z",
-        "Sam",
-        "Jones",
-        "sam@example.com",
-        phone="+447700900123",
-        organisation="Acme",
-    )
-    assert out == {
-        "meeting_id": "mtg-1",
-        "start_iso": "2025-10-09T09:00:00Z",
-        "confirmation_sent": True,
-    }
-    body = rec.body(-1)
-    assert body["slug"] == "disco"
-    assert body["startTime"] == 1760000400000
-    assert body["duration"] == 1800000
-    names = {f["name"] for f in body["formFields"]}
-    assert {"email", "firstName", "lastName", "phone", "company"} <= names
     await client.aclose()
 
 
