@@ -1,7 +1,7 @@
 # Status
 
 **Current phase:** 1 complete ✅ (HubSpot CRM + Cal.com booking) · Phase 0 host bring-up still outstanding · next: Phase 2 (telephony)
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 ## Done
 - Spec, config templates, schema and test suite written.
@@ -25,13 +25,12 @@
 ## Phase 1 — HubSpot CRM + Cal.com booking — ✅ COMPLETE (2026-10-05)
 - **Done:** `agent/hubspot/` CRM client, `agent/calcom/` booking client, and `scripts/provision_hubspot.py` scaffolded + unit-tested (17 tests). Booking = Cal.com event 7103844 ("LiftPulse Trial", 15-min, auto-confirmed). HubSpot pipeline = existing "Sales Pipeline" (`default`); stages Lead Identified (6139983093) / Initial Contact (6139983094); expert Noel Sesto (owner 99735767).
 - **Live Cal.com booking verified (2026-10-05):** booked the 2026-10-06 09:00Z slot as "Noel Test" / noel@controlfreq.co.uk / Company "ControlFreq Test" (uid `mL3SW3Q5mM1s5ghMEseT85`, status accepted) → it appeared on Noel's Google Calendar with Company/phone/notes populated → cancelled via `POST /v2/bookings/{uid}/cancel`. **`BOOKINGS_VERSION` 2024-08-13 confirmed** (create + cancel). **`attendeePhoneNumber` is a required, validated field** on this event — the agent must pass the caller's CLI as the attendee phone. Confirmation + cancellation emails confirmed in Noel's inbox (DevOps, 2026-10-05).
-- **HubSpot provisioned on `main` (2026-10-05):** `provision_hubspot.py` created the property group + 12 `cf_` properties; idempotent re-run = all "exists". CRM clients live-tested against a throwaway "Noel Test": upsert contact (create + update-by-email), company, deal (pipeline `default`, stage 6139983093), call — all OK; records deleted. Phone lookup corrected to HubSpot's calculated format (`447…`, E.164 without `+`) and verified live.
+- **HubSpot provisioned on `main` (2026-10-05):** `provision_hubspot.py` created the property group + 12 `cf_` properties; idempotent re-run = all "exists". CRM clients live-tested against a throwaway "Noel Test": upsert contact (create + update-by-email), company, deal (pipeline `default`, stage 6139983093), call — all OK; records deleted. Phone lookup matches HubSpot's calculated searchable properties on both the national number and the E.164-without-plus form (one `IN` filter per property, via `phonenumbers`), re-verified live against a real-format UK mobile — see the 2026-10-05 correction in DECISIONS.
 - **DoD met.** Deferred to Phase 3: wiring both clients into the agent tools.
 
 ## Blocked
 - **Phase 0 host bring-up:** blocked until a host exists and `WINDMILL_DOMAIN` has DNS pointing at it (Caddy needs the hostname for a TLS cert).
 - **Phase 1:** ✅ resolved — HubSpot provisioned + CRM verified on `main` (2026-10-05); Cal.com booking verified earlier. Nothing outstanding.
-- Expert identity and HubSpot meeting link (Phase 1).
 - RingCentral admin access and the receptionist extension (Phase 2).
 
 ## Test-call log
