@@ -37,17 +37,16 @@ PHONE_SEARCH_PROPS = (
 )
 
 
-def _national_number(phone: str) -> str:
-    """UK national significant number: the digits minus +44 or a leading 0 (SPEC §9).
-
-    HubSpot's calculated searchable phone properties normalise formatting, so a lookup
-    matches on this regardless of how the number was entered.
+def _searchable_number(phone: str) -> str:
+    """The digits HubSpot stores in `hs_searchable_calculated_*_number`: the E.164
+    number without the leading '+' (verified live — "+447700900123" is stored as
+    "447700900123"). A UK national number (leading 0) is normalised to the 44 prefix.
     """
     p = phone.strip().replace(" ", "")
-    if p.startswith("+44"):
-        return p[3:]
-    if p.startswith("0"):
+    if p.startswith("+"):
         return p[1:]
+    if p.startswith("0"):
+        return "44" + p[1:]
     return p
 
 
@@ -142,10 +141,10 @@ class HubSpotClient:
         self, phone: str, properties: list[str], *, timeout: float | None = None
     ) -> dict | None:
         """Search a contact on HubSpot's calculated searchable phone properties by the
-        UK national number — 2 filter groups (HubSpot allows at most 5)."""
-        nsn = _national_number(phone)
+        E.164-without-plus form — 2 filter groups (HubSpot allows at most 5)."""
+        value = _searchable_number(phone)
         filter_groups = [
-            {"filters": [{"propertyName": prop, "operator": "EQ", "value": nsn}]}
+            {"filters": [{"propertyName": prop, "operator": "EQ", "value": value}]}
             for prop in PHONE_SEARCH_PROPS
         ]
         payload = {"filterGroups": filter_groups, "properties": properties, "limit": 1}
@@ -156,7 +155,7 @@ class HubSpotClient:
     async def search_contact_by_phone(
         self, phone_e164: str, *, timeout: float | None = None
     ) -> dict | None:
-        """Find a contact by the UK national number against HubSpot's calculated
+        """Find a contact by the E.164-without-plus form against HubSpot's calculated
         searchable phone/mobile properties (SPEC §7). Returns the compact shape the
         lookup tool speaks from, or None."""
         c = await self._find_contact_by_phone(

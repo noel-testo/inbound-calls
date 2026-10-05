@@ -2,6 +2,20 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-05 — Phase 1 closed: HubSpot provisioned + CRM verified (Claude)
+
+- **Provisioning applied on `main`** with `HUBSPOT_PROVISION_KEY`: created the "ControlFreq AI
+  Receptionist" group + all 12 `cf_` properties; idempotent re-run reports "exists" (no duplicates).
+- **CRM live-tested** with `HUBSPOT_SERVICE_KEY` against a throwaway "Noel Test" record:
+  `upsert_contact` (create + update-by-email), `upsert_company`, `create_deal` (Sales Pipeline
+  `default`, stage 6139983093), `create_call` (associated) all succeeded; records deleted afterwards.
+  The service key has CRM read + write + delete.
+- **Phone-search format fix (verified live):** HubSpot's `hs_searchable_calculated_phone_number` stores
+  the E.164 number **without the '+'** (e.g. `447700900123`), not the bare national number. The earlier
+  "national number minus +44/leading 0" was wrong and never matched. `search_contact_by_phone` now
+  matches on the E.164-without-plus form (`_searchable_number`); a live lookup found the contact after
+  ~5s of search-index lag. Unit test updated.
+
 ## 2026-10-05 — Discovery-call booking moves to Cal.com (Noel)
 
 - **Booking is Cal.com, not HubSpot Meetings.** No HubSpot meeting link/slug is coming; the HubSpot

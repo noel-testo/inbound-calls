@@ -86,8 +86,8 @@ async def test_search_contact_by_phone_found():
         (g["filters"][0]["propertyName"], g["filters"][0]["value"]) for g in sent["filterGroups"]
     }
     assert pairs == {
-        ("hs_searchable_calculated_phone_number", "7700900123"),
-        ("hs_searchable_calculated_mobile_number", "7700900123"),
+        ("hs_searchable_calculated_phone_number", "447700900123"),
+        ("hs_searchable_calculated_mobile_number", "447700900123"),
     }
     await client.aclose()
 
