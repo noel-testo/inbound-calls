@@ -2,6 +2,71 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-05 — Discovery-call booking moves to Cal.com (Noel)
+
+- **Booking is Cal.com, not HubSpot Meetings.** No HubSpot meeting link/slug is coming; the HubSpot
+  scheduler scope is dropped. HubSpot stays the CRM system of record (contacts/companies/deals/calls);
+  Cal.com owns scheduling. New provider `agent/calcom/` — recorded per working-rule #2 (a new component
+  needs a reason + a yes; this is Noel's decision).
+- **Removed** `get_availability` / `book_meeting` and all scheduler code from `agent/hubspot/`;
+  `HUBSPOT_MEETING_LINK_SLUG` dropped from `.env.example`.
+- **`agent/calcom/` (Cal.com API v2):** `GET /v2/slots` (cal-api-version **2024-09-04**) for
+  availability; `POST /v2/bookings` (cal-api-version **2024-08-13**) to book. Versions are per-endpoint.
+  A custom `User-Agent` is required — Cal.com's Cloudflare returns error 1010 to the default Python
+  client signature (confirmed live).
+- **Event type 7103844** ("LiftPulse Trial", 15-min, auto-confirmed). Booking-field slugs confirmed
+  live via `GET /v2/event-types/7103844`: attendee name/email/phone are system fields (→ `attendee`
+  object); custom `bookingFieldsResponses` keys are `Company` (required), `title` (required, hidden;
+  defaults to "Intro call – <organisation>"), `notes` (optional; qualification summary).
+- **Config:** `CALCOM_API_KEY` (account noelsesto) + `CALCOM_EVENT_TYPE_ID=7103844` in `.env`. HubSpot
+  Service Keys still to come from Noel.
+- **Slots response shape:** `{"data": {"YYYY-MM-DD": [{"start": ISO+offset}, …]}}`; the client filters
+  to [from, to] and normalises starts to UTC "…Z".
+- **Phase 1 DoD now:** a test script books a real Cal.com slot → it appears in Google Calendar →
+  confirmation email arrives (plus the unit tests).
+- **Live booking verified 2026-10-05:** booked + cancelled a real slot via the API; event appeared on
+  Noel's Google Calendar with Company/phone/notes populated. **`BOOKINGS_VERSION` 2024-08-13 confirmed**
+  for both create and cancel (`POST /v2/bookings/{uid}/cancel`). **`attendeePhoneNumber` is REQUIRED**
+  on event 7103844 and is validated (libphonenumber) — the agent must pass the caller's CLI as the
+  attendee phone; `book_meeting` sends it as `attendee.phoneNumber`.
+
+## 2026-10-04 — HubSpot provisioning & auth decisions (Noel)
+
+- **Auth is HubSpot Service Keys, not a legacy private app:** `HUBSPOT_SERVICE_KEY` for the agent
+  runtime, `HUBSPOT_PROVISION_KEY` for `scripts/provision_hubspot.py`. `.env.example` updated; the
+  client's `from_env` reads `HUBSPOT_SERVICE_KEY`.
+- **No new pipeline** (Starter plan allows two). Use the existing **"Sales Pipeline"**
+  (`HUBSPOT_DEAL_PIPELINE_ID=default`) and map the receptionist's outcomes onto existing stages:
+  **Qualified – not booked → "Lead Identified" (6139983093)**, **Discovery booked → "Initial
+  Contact" (6139983094)**. Stage IDs live in `.env`.
+- **Expert:** Noel Sesto, owner id **99735767** (`HUBSPOT_EXPERT_OWNER_ID`). Meeting-link slug and
+  the Service Keys to follow from Noel.
+- **`scripts/provision_hubspot.py`:** idempotent, create-only (never renames/deletes). Checks the
+  property group first via the dated properties API `GET /crm/properties/2026-09/contacts/groups`,
+  then creates the group + the 12 `cf_` properties per SPEC §9 if missing. `--dry-run` prints the plan
+  with no API calls or key. Pipeline/stages are not created — only echoed for confirmation.
+- **Phone lookup** now also tries the spaced **"+44 XXXX XXXXXX"** form (existing contacts are stored
+  spaced), alongside compact E.164 and UK national.
+
+## 2026-10-04 — Phase 1 HubSpot client scaffold (Claude)
+
+- **Thin async `httpx` client**, not the `hubspot-api-client` SDK ("the best part is no part"). The
+  agent's tools are async with tight timeouts; one small wrapper (`agent/hubspot/client.py`) over the
+  REST API is leaner and fully mockable. Added `httpx>=0.27` (locked 0.28.1).
+- **Endpoints:** CRM objects on stable `/crm/v3/objects/...` (contacts/companies/deals/calls search,
+  create, patch, associations). **(Scheduling below superseded 2026-10-05 → Cal.com.)** Discovery-call booking was on the **versioned** Meetings scheduler
+  `/scheduler/2026-03/meetings/meeting-links/book/...` (availability via `GET book/{slug}`, booking via
+  `POST book`). HubSpot sends the confirmation email + calendar invite.
+- **Association type IDs** (category `HUBSPOT_DEFINED`): deal→contact 3, deal→company 5,
+  call→contact 194, call→company 182, call→deal 206.
+- **Client raises `HubSpotError`; the tool layer decides fail-soft vs blocking** (SPEC §5.1/§7).
+  `upsert_contact` matches by email then phone; phone lookups try E.164 + UK national (SPEC §9/§11).
+- **Tests** use `httpx.MockTransport` (no new test dependency) and assert the exact request payloads;
+  `pytest` gets `pythonpath = ["."]` so `agent` imports without packaging. 11 tests pass; ruff clean.
+- **To validate in the live phase** (blocked on the expert's meeting-link slug + Service Keys):
+  the scheduler availability JSON shape (`linkAvailability.linkAvailabilityByDuration[*].availabilities[*]`,
+  parsed defensively) and the booking `formFields` names, which depend on the link's form config.
+
 ## 2026-10-03 — Initial architecture (Noel, with Claude)
 
 - **Six components only:** RingCentral, FreeSWITCH (temporary), LiveKit, Neon, Windmill, HubSpot. "The best part is no part."
