@@ -1,7 +1,7 @@
 # Status
 
 **Current phase:** 1 complete ✅ (HubSpot CRM + Cal.com booking) · Phase 0 host bring-up still outstanding · next: Phase 2 (telephony)
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-07
 
 ## Done
 - Spec, config templates, schema and test suite written.
@@ -28,11 +28,13 @@
 - **HubSpot provisioned on `main` (2026-10-05):** `provision_hubspot.py` created the property group + 12 `cf_` properties; idempotent re-run = all "exists". CRM clients live-tested against a throwaway "Noel Test": upsert contact (create + update-by-email), company, deal (pipeline `default`, stage 6139983093), call — all OK; records deleted. Phone lookup matches HubSpot's calculated searchable properties on both the national number and the E.164-without-plus form (one `IN` filter per property, via `phonenumbers`), re-verified live against a real-format UK mobile — see the 2026-10-05 correction in DECISIONS.
 - **DoD met.** Deferred to Phase 3: wiring both clients into the agent tools.
 
-## Phase 2 — Telephony (Telnyx + LiveKit SIP) — scope (revised 2026-10-05)
-- **Ingress:** RingCentral stays the office PBX; its after-hours / no-answer rules divert the main number to a **Telnyx UK DID**, which routes over a Telnyx SIP trunk to **LiveKit SIP** (IP-restricted to Telnyx). CLI preserved for the HubSpot lookup. **FreeSWITCH and the RingCentral SIP-registration hack are dropped.**
+## Phase 2 — Telephony (Telnyx + LiveKit SIP) — scope (revised 2026-10-07)
+- **Ingress:** RingCentral stays the office PBX; its after-hours / no-answer rules divert the main number to a **London 020** Telnyx DID, which routes over a Telnyx SIP trunk to **LiveKit SIP** (IP-restricted to Telnyx). CLI preserved for the HubSpot lookup. **FreeSWITCH and the RingCentral SIP-registration hack are dropped.**
+- **No audio recording (decided 2026-10-07):** no `record_session` / egress / Telnyx recording; full two-sided, timestamped transcripts in Neon are the record of each call (SPEC §8).
 - **To build:** `scripts/provision_livekit.py` (inbound trunk locked to Telnyx + dispatch rule); `infra/telnyx/` connection/DID notes; a minimal "speak one line" agent; the RingCentral divert configured.
-- **DoD:** dialling the Telnyx number (directly and via the RingCentral divert) plays the line, a LiveKit room appears, and the Neon `calls` row shows the correct CLI. Recording verified once the §8 approach is chosen.
-- **Blocked:** no Telnyx credentials yet (account upgrade pending Telnyx support); open questions in QUESTIONS (number type, CLI-on-divert, UK regulatory, recording).
+- **DoD:** dialling the Telnyx number (directly and via the RingCentral divert) plays the line, a LiveKit room appears, and the Neon `calls` row shows the correct CLI.
+- **Phase 4 (note):** `post_call` will also append each transcript + short summary to a running "Call transcripts" pitch-review doc; destination (Google Doc vs Notion) is open in QUESTIONS.
+- **Blocked:** no Telnyx credentials yet (account upgrade pending Telnyx support); open questions in QUESTIONS (CLI-on-divert, UK regulatory).
 
 ## Blocked
 - **Phase 0 host bring-up:** blocked until a host exists and `WINDMILL_DOMAIN` has DNS pointing at it (Caddy needs the hostname for a TLS cert).

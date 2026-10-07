@@ -2,6 +2,22 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-07 — London 020 number; no audio recording; transcript pitch-review doc (Noel)
+
+- **Telnyx DID is a London 020 local (geographic) number**, not an 03 non-geographic. Resolves the
+  "UK number type" open question.
+- **No audio recording in the MVP.** `record_session`, LiveKit egress and Telnyx call recording are all
+  dropped. The **full two-sided, timestamped transcript** (roles agent/caller) persisted to Neon
+  `transcripts` is the record of every call. `calls.recording_path` stays null (the column and
+  `RECORDINGS_DIR` / `RECORDING_RETENTION_DAYS` are kept but unused in the MVP). Audio recording may
+  return post-MVP (SPEC §15). The greeting disclosure should change from "recorded" to a call-logging
+  notice — flagged for Noel (caller-facing wording).
+- **Phase 4 `post_call` appends a pitch-review log.** A new `transcript_log` step appends each call's
+  transcript + a short summary (caller, company, outcome, objections, questions we couldn't answer) to a
+  running "Call transcripts" document, for reviewing how pitches land. Idempotent on `call_id`.
+  **Destination — Google Doc vs Notion — is an open question** (QUESTIONS). This is the first transcript
+  data to leave the host, so SPEC §2 principle 7 was updated to allow it.
+
 ## 2026-10-05 — Drop FreeSWITCH + RingCentral SIP; Telnyx SIP trunk for ingress (Noel)
 
 - **Telephony ingress is now Telnyx → LiveKit SIP.** FreeSWITCH and the RingCentral SIP-registration
@@ -21,7 +37,7 @@ Record every architecture decision and every pinned version here. One entry per 
   Phase 2 test wait on the DID + SIP connection.
 - **Open questions** flagged in `docs/QUESTIONS.md`: UK number type (geographic vs non-geographic),
   whether RingCentral preserves the original caller's CLI on an external divert, UK regulatory docs
-  (Ofcom CLI rules, 999/112 handling, number registration), and the recording approach.
+  (Ofcom CLI rules, 999/112 handling, number registration), and the recording approach (since resolved 2026-10-07: no audio recording in the MVP).
 
 ## 2026-10-05 — Phase 1 closed: HubSpot provisioned + CRM verified (Claude)
 
@@ -115,7 +131,7 @@ Record every architecture decision and every pinned version here. One entry per 
 - **HubSpot is the system of record** for sales state; Neon holds the receptionist's own data; Windmill runs on a database in the same Neon project.
 - **Synchronous in the agent, asynchronous in Windmill.** Only availability and booking block a call.
 - **Hosted model providers in the MVP**, each behind an interface; LLM via an OpenAI-compatible endpoint. No GPU until the flow has earned it.
-- **Recording on the FreeSWITCH leg**, not LiveKit egress, to avoid another service. *(Superseded 2026-10-05: FreeSWITCH removed; recording leg is now TBD — SPEC §8.)*
+- **Recording on the FreeSWITCH leg**, not LiveKit egress, to avoid another service. *(Superseded 2026-10-05: FreeSWITCH removed. Further 2026-10-07: no audio recording in the MVP — SPEC §8.)*
 - **MVP scope:** after-hours and unanswered calls only; no live transfer until daytime traffic.
 
 ## 2026-10-03 — Phase 0 scaffold decisions (Claude)

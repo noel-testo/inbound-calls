@@ -19,10 +19,9 @@ questions are raised in the session immediately and recorded here afterwards.
 - **Windmill public hostname + DNS** for Caddy TLS (`WINDMILL_DOMAIN`). *Default:* a subdomain on a ControlFreq domain (e.g. `windmill.controlfreq.…`) A-record'd to the host; set in `.env` at bring-up.
 - **LiveKit SIP exposure (Phase 2):** with Telnyx as the trunk, `livekit-sip` must be reachable from Telnyx — publish its SIP port + RTP range on the host, firewalled to Telnyx's IP ranges only. *Default:* IP-allowlist Telnyx's documented SIP/media ranges on the trunk and host firewall; confirm exact ranges when the Telnyx account is live.
 - **Telnyx account + DID (Phase 2):** account upgrade is blocked on Telnyx support; no credentials yet. Needed: a UK DID + a SIP connection pointing at LiveKit SIP. *Default:* none; blocking for the Phase 2 live test.
-- **UK number type:** geographic (01/02) vs non-geographic/national (03) vs mobile (07) for the Telnyx DID. *Default:* an 03 non-geographic number (nationwide, no area tie); confirm with Noel.
 - **CLI on RingCentral divert:** does RingCentral present the *original caller's* CLI when it diverts externally to Telnyx, or its own number? The HubSpot lookup needs the original. *Default:* assume original CLI is passed; verify on the first live test and check for a RingCentral/Telnyx setting if not.
 - **UK regulatory:** Ofcom CLI/presentation rules, 999/112 emergency-call handling (whether the AI line must support/route them), and number-registration obligations. *Default:* the AI line is inbound-only and not advertised as an emergency contact; the greeting's emergency wording directs callers elsewhere; confirm obligations before go-live.
-- **Recording approach (Phase 2/3):** LiveKit track egress to host disk vs Telnyx call recording (SPEC §8). *Default:* LiveKit egress to `RECORDINGS_DIR` to keep recordings on the host per SPEC §7 retention; revisit if egress is too heavy.
+- **"Call transcripts" doc destination (Phase 4):** where `post_call`'s `transcript_log` step appends each transcript + summary for pitch review — **Google Doc vs Notion**. *Default:* a single append-only Google Doc in the ControlFreq workspace; revisit if Notion is preferred.
 
 ## Answered
 
@@ -31,3 +30,5 @@ questions are raised in the session immediately and recorded here afterwards.
 - **HubSpot auth:** Service Keys, not a legacy private app — `HUBSPOT_SERVICE_KEY` (runtime) + `HUBSPOT_PROVISION_KEY` (provisioning). (2026-10-04)
 - **HubSpot Service Keys provided + verified** (2026-10-05): `HUBSPOT_SERVICE_KEY` has CRM read/write/delete; `HUBSPOT_PROVISION_KEY` has schema access. Both in `.env`; provisioning + CRM live-tested.
 - **Discovery-call booking platform:** Cal.com, not HubSpot Meetings. Event type 7103844 ("LiftPulse Trial", 15-min, auto-confirmed; account noelsesto); `CALCOM_API_KEY` + `CALCOM_EVENT_TYPE_ID` in `.env`. HubSpot scheduler scope dropped; no HubSpot meeting link. (2026-10-05)
+- **UK number type:** London **020** local (geographic) Telnyx DID. (2026-10-07)
+- **Audio recording:** none in the MVP — no `record_session` / egress / Telnyx recording; the full two-sided, timestamped Neon transcript is the record of each call (SPEC §8). Audio recording deferred post-MVP. (2026-10-07)
