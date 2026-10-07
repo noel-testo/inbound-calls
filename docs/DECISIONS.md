@@ -2,6 +2,14 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-07 — TTS provider: ElevenLabs (Noel)
+
+- **TTS is ElevenLabs for the MVP** (`TTS_PROVIDER=elevenlabs`; `ELEVENLABS_API_KEY` in `.env`), behind
+  the `TTSProvider` interface (SPEC §8) so switching stays a config change, not code — Cartesia and
+  `kokoro_local` remain alternates. The specific British-English voice id (`TTS_VOICE_ID`) is still to be
+  chosen. Resolves the provider half of the Voice question; STT (Deepgram) and the LLM endpoint are still
+  open for Phase 3.
+
 ## 2026-10-07 — London 020 number; no audio recording; transcript pitch-review doc (Noel)
 
 - **Telnyx DID is a London 020 local (geographic) number**, not an 03 non-geographic. Resolves the

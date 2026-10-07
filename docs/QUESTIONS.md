@@ -7,7 +7,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 - **Business hours** for `config/greeting.yaml` and for "after hours". *Default:* Mon–Fri 09:00–17:30.
 - **Greeting, closing, emergency instruction** wording. *Default:* the TODO placeholders stay until approved; blocking for Phase 5.
-- **Voice:** Cartesia or ElevenLabs, and which British English voice. *Default:* Cartesia, first suitable British voice, for Phase 3 testing only.
+- **TTS voice id:** which ElevenLabs British-English voice (`TTS_VOICE_ID`). *Default:* a neutral British voice for Phase 3 testing; Noel confirms the final voice.
 - **LLM endpoint for the MVP:** which hosted model behind `LLM_BASE_URL`. *Default:* whichever is already paid for; swapped later.
 - **Scoring:** confirm or change weights and the threshold (50) in `config/scoring.yaml`. *Default:* as shipped.
 - **Retention:** recordings 90 days; transcripts kept indefinitely? *Default:* 90 / indefinite.
@@ -33,3 +33,4 @@ questions are raised in the session immediately and recorded here afterwards.
 - **UK number type:** London **020** local (geographic) Telnyx DID. (2026-10-07)
 - **Audio recording:** none in the MVP — no `record_session` / egress / Telnyx recording; the full two-sided, timestamped Neon transcript is the record of each call (SPEC §8). Audio recording deferred post-MVP. (2026-10-07)
 - **"Call transcripts" doc destination:** **Notion** (not Google Docs) — a Notion database, one row per call (date, caller, company, outcome, summary; full transcript in the page body) so it stays searchable/filterable. `NOTION_API_KEY` + `NOTION_TRANSCRIPTS_DB_ID` to come. (2026-10-07)
+- **TTS provider:** ElevenLabs for the MVP (`TTS_PROVIDER=elevenlabs`, `ELEVENLABS_API_KEY` in `.env`), behind the `TTSProvider` interface; Cartesia remains a swappable alternate. (2026-10-07)

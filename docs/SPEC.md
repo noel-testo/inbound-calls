@@ -165,7 +165,7 @@ State-gated availability: `check_availability` and `book_meeting` are registered
 - **Turn detection:** LiveKit's end-of-turn model (English). Patience raised in dictation mode.
 - **STT:** Deepgram streaming with key terms from `config/terms.yaml` and Neon `terms` (product names, standards, staff names, major client names). Interface `STTProvider`; later implementation `whisper_local`.
 - **LLM:** OpenAI-compatible client against `LLM_BASE_URL`; tool calling and streaming required. Interface `LLMProvider`. Prompt rendered by `prompt.py` from `config/prompt.md` plus runtime values (caller context, hours, expert name, current date and time in `Europe/London`).
-- **TTS:** Cartesia or ElevenLabs, a British English voice chosen by Noel; streaming. Interface `TTSProvider`; later `kokoro_local`.
+- **TTS:** **ElevenLabs** (MVP), a British English voice chosen by Noel; streaming. Interface `TTSProvider` (Cartesia and `kokoro_local` are swappable alternates).
 - **Noise cancellation:** none in MVP (self-hosted LiveKit; G.711 narrowband audio). Revisit with RNNoise or DeepFilterNet if needed.
 - **Latency budget:** ≤ 800 ms from caller end-of-turn to first audio. Measured and logged per turn (`events.type = turn_latency`).
 - **Recording:** **no audio recording in the MVP** — `record_session` / LiveKit egress / Telnyx recording are all dropped. Instead the full two-sided transcript (every turn, timestamped, roles agent/caller) is persisted to Neon `transcripts` for every call. `calls.recording_path` stays null (column kept for a later phase). Audio recording may return post-MVP (§15).
