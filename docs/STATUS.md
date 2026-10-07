@@ -1,12 +1,12 @@
 # Status
 
 **Current phase:** 1 complete ✅ (HubSpot CRM + Cal.com booking) · Phase 0 host bring-up still outstanding · next: Phase 2 (telephony)
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-07
 
 ## Done
 - Spec, config templates, schema and test suite written.
 - **Phase 0 scaffold (code/config complete):**
-  - Target repo layout created (`agent/`, `windmill/`, `infra/{livekit,freeswitch,caddy}/`, `scripts/`, `tests/`).
+  - Target repo layout created (`agent/`, `windmill/`, `infra/{livekit,telnyx,caddy}/`, `scripts/`, `tests/`).
   - Single `uv` project at root: `pyproject.toml`, `uv.lock`, `.python-version` (3.12); ruff + pytest configured; `ruff check`/`format` clean.
   - Every Phase-0 image tag pinned in `infra/docker-compose.yml` and recorded in `docs/DECISIONS.md`; LiveKit/SIP/Caddy env wired; secrets kept to `../.env`.
   - `infra/livekit/livekit.yaml`, `infra/livekit/sip.yaml`, `infra/caddy/Caddyfile` written.
@@ -28,10 +28,18 @@
 - **HubSpot provisioned on `main` (2026-10-05):** `provision_hubspot.py` created the property group + 12 `cf_` properties; idempotent re-run = all "exists". CRM clients live-tested against a throwaway "Noel Test": upsert contact (create + update-by-email), company, deal (pipeline `default`, stage 6139983093), call — all OK; records deleted. Phone lookup matches HubSpot's calculated searchable properties on both the national number and the E.164-without-plus form (one `IN` filter per property, via `phonenumbers`), re-verified live against a real-format UK mobile — see the 2026-10-05 correction in DECISIONS.
 - **DoD met.** Deferred to Phase 3: wiring both clients into the agent tools.
 
+## Phase 2 — Telephony (Telnyx + LiveKit SIP) — scope (revised 2026-10-07)
+- **Ingress:** RingCentral stays the office PBX; its after-hours / no-answer rules divert the main number to a **London 020** Telnyx DID, which routes over a Telnyx SIP trunk to **LiveKit SIP** (IP-restricted to Telnyx). CLI preserved for the HubSpot lookup. **FreeSWITCH and the RingCentral SIP-registration hack are dropped.**
+- **No audio recording (decided 2026-10-07):** no `record_session` / egress / Telnyx recording; full two-sided, timestamped transcripts in Neon are the record of each call (SPEC §8).
+- **To build:** `scripts/provision_livekit.py` (inbound trunk locked to Telnyx + dispatch rule); `infra/telnyx/` connection/DID notes; a minimal "speak one line" agent; the RingCentral divert configured.
+- **DoD:** dialling the Telnyx number (directly and via the RingCentral divert) plays the line, a LiveKit room appears, and the Neon `calls` row shows the correct CLI.
+- **Phase 4 (note):** `post_call` will also append each call to the **Notion** "Call transcripts" database (one row per call; full transcript in the page body) for pitch review — destination decided 2026-10-07.
+- **Blocked:** no Telnyx credentials yet (account upgrade pending Telnyx support); open questions in QUESTIONS (CLI-on-divert, UK regulatory).
+
 ## Blocked
 - **Phase 0 host bring-up:** blocked until a host exists and `WINDMILL_DOMAIN` has DNS pointing at it (Caddy needs the hostname for a TLS cert).
 - **Phase 1:** ✅ resolved — HubSpot provisioned + CRM verified on `main` (2026-10-05); Cal.com booking verified earlier. Nothing outstanding.
-- RingCentral admin access and the receptionist extension (Phase 2).
+- **Phase 2 telephony:** Telnyx account upgrade (blocked on Telnyx support) for the UK DID + SIP connection; RingCentral admin to set the after-hours / no-answer divert to that Telnyx number. No Telnyx credentials yet.
 
 ## Test-call log
 | Date | # | call_id | Pass/Fail | Notes |
@@ -44,6 +52,6 @@
 - [ ] HubSpot workflow (task + Slack) verified on a test deal
 - [ ] Retention schedule running
 - [ ] n8n RC alert disabled; Windmill port verified
-- [ ] RingCentral after-hours rule → receptionist extension
-- [ ] RingCentral no-answer forwarding → receptionist extension
+- [ ] RingCentral after-hours rule → Telnyx number
+- [ ] RingCentral no-answer forwarding → Telnyx number
 - [ ] Two-week after-hours review period scheduled

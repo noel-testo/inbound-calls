@@ -2,6 +2,46 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-07 — London 020 number; no audio recording; transcript pitch-review doc (Noel)
+
+- **Telnyx DID is a London 020 local (geographic) number**, not an 03 non-geographic. Resolves the
+  "UK number type" open question.
+- **No audio recording in the MVP.** `record_session`, LiveKit egress and Telnyx call recording are all
+  dropped. The **full two-sided, timestamped transcript** (roles agent/caller) persisted to Neon
+  `transcripts` is the record of every call. `calls.recording_path` stays null and is the
+  only recording placeholder; `RECORDINGS_DIR` / `RECORDING_RETENTION_DAYS` dropped from `.env.example`.
+  Audio recording may return post-MVP (SPEC §15). The greeting disclosure should change from "recorded" to a call-logging
+  notice — flagged for Noel (caller-facing wording).
+- **Phase 4 `post_call` appends a pitch-review log.** A new `transcript_log` step appends each call's
+  transcript + a short summary (caller, company, outcome, objections, questions we couldn't answer) to a
+  running "Call transcripts" document, for reviewing how pitches land. Idempotent on `call_id`.
+  **Destination: Notion** (decided 7 Oct) — a Notion database, one row per call (date, caller, company,
+  outcome, summary; full transcript in the page body), not an ever-growing page, so it stays searchable.
+  `NOTION_API_KEY` + `NOTION_TRANSCRIPTS_DB_ID` to come. This is the first transcript data to leave the
+  host, so SPEC §2 principle 7 was updated to allow it; a retention rule for this personal data is open
+  for Noel (QUESTIONS).
+
+## 2026-10-05 — Drop FreeSWITCH + RingCentral SIP; Telnyx SIP trunk for ingress (Noel)
+
+- **Telephony ingress is now Telnyx → LiveKit SIP.** FreeSWITCH and the RingCentral SIP-registration
+  hack are dropped. RingCentral stays the office phone system; its after-hours and no-answer rules divert
+  the main number externally to a Telnyx UK DID, which routes over a Telnyx SIP trunk to LiveKit SIP
+  (IP-restricted to Telnyx). CLI is preserved end to end so the HubSpot lookup keeps working.
+- **Why:** removes a whole component and the fragile "register FreeSWITCH as a RingCentral device"
+  workaround (LiveKit can't REGISTER); a Telnyx SIP trunk is the direct, supported path. Still six
+  components — Telnyx replaces FreeSWITCH. This **reverses** the "second carrier (Telnyx/Simwood) removed"
+  note in the 2026-10-03 entry.
+- **Consequences:** LiveKit SIP must now be publicly reachable from Telnyx (SIP port + RTP range,
+  firewalled to Telnyx IPs), whereas before nothing LiveKit-related was exposed. Recording moves off the
+  FreeSWITCH leg and is now **TBD** (LiveKit egress vs Telnyx recording — SPEC §8). `.env` drops
+  `RC_SIP_*` / `FS_EXTERNAL_IP` and adds `TELNYX_*`; `infra/freeswitch/` removed; `freeswitch` service
+  removed from compose.
+- **No Telnyx credentials yet** — account upgrade is blocked on Telnyx support. Provisioning + the live
+  Phase 2 test wait on the DID + SIP connection.
+- **Open questions** flagged in `docs/QUESTIONS.md`: UK number type (geographic vs non-geographic),
+  whether RingCentral preserves the original caller's CLI on an external divert, UK regulatory docs
+  (Ofcom CLI rules, 999/112 handling, number registration), and the recording approach (since resolved 2026-10-07: no audio recording in the MVP).
+
 ## 2026-10-05 — Phase 1 closed: HubSpot provisioned + CRM verified (Claude)
 
 - **Provisioning applied on `main`** with `HUBSPOT_PROVISION_KEY`: created the "ControlFreq AI
@@ -88,13 +128,13 @@ Record every architecture decision and every pinned version here. One entry per 
 
 ## 2026-10-03 — Initial architecture (Noel, with Claude)
 
-- **Six components only:** RingCentral, FreeSWITCH (temporary), LiveKit, Neon, Windmill, HubSpot. "The best part is no part."
+- **Six components only:** RingCentral, FreeSWITCH (temporary), LiveKit, Neon, Windmill, HubSpot. "The best part is no part." *(Superseded 2026-10-05: FreeSWITCH → Telnyx.)*
 - **Removed from the process:** Apollo (prospecting only, synced to HubSpot), n8n (retired after Windmill takes the RC alert), a second carrier (Telnyx/Simwood), direct Google Calendar integration (via HubSpot Meetings), SMS (HubSpot booking email + invite instead).
-- **Ingress:** FreeSWITCH registers to RingCentral as an existing-phone device because LiveKit SIP does not support REGISTER. Preserves CLI, keeps transfers internal later, exposes nothing publicly.
+- **Ingress:** FreeSWITCH registers to RingCentral as an existing-phone device because LiveKit SIP does not support REGISTER. Preserves CLI, keeps transfers internal later, exposes nothing publicly. *(Superseded 2026-10-05: ingress is now a Telnyx SIP trunk into LiveKit SIP; RingCentral diverts to a Telnyx DID.)*
 - **HubSpot is the system of record** for sales state; Neon holds the receptionist's own data; Windmill runs on a database in the same Neon project.
 - **Synchronous in the agent, asynchronous in Windmill.** Only availability and booking block a call.
 - **Hosted model providers in the MVP**, each behind an interface; LLM via an OpenAI-compatible endpoint. No GPU until the flow has earned it.
-- **Recording on the FreeSWITCH leg**, not LiveKit egress, to avoid another service.
+- **Recording on the FreeSWITCH leg**, not LiveKit egress, to avoid another service. *(Superseded 2026-10-05: FreeSWITCH removed. Further 2026-10-07: no audio recording in the MVP — SPEC §8.)*
 - **MVP scope:** after-hours and unanswered calls only; no live transfer until daytime traffic.
 
 ## 2026-10-03 — Phase 0 scaffold decisions (Claude)
@@ -108,9 +148,9 @@ Record every architecture decision and every pinned version here. One entry per 
   are injected as `LIVEKIT_KEYS` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` from `../.env`. Because
   compose interpolates `${...}` at parse time, the stack must be brought up with the env file:
   `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`.
-- **Phase 0 bring-up targets a subset.** `freeswitch` (Phase 2) and `agent` (Phase 2/3) have no
-  Dockerfile yet, so they are not built or started in Phase 0; the command above names the five
-  stack services only. Their base images are pinned when those Dockerfiles are written.
+- **Phase 0 bring-up targets a subset.** `agent` (Phase 2/3) has no Dockerfile yet, so it is not
+  built or started in Phase 0; the command above names the five stack services only. Its base image
+  is pinned when that Dockerfile is written. (FreeSWITCH was later dropped entirely — 2026-10-05.)
 - **`seed_config.py` skips `TODO` placeholders** so nothing unapproved reaches the agent or STT, and
   warns when seeded config still contains them (expected until Noel approves wording).
 - **Redis healthcheck** added to compose; other services judged via `docker compose ps` for now.
@@ -144,8 +184,8 @@ Recorded 2026-10-03. Image tags verified against the registries on this date.
 - `livekit/sip:v1.17.0`
 - `ghcr.io/windmill-labs/windmill:v1.822.0` (server and worker, same tag)
 - `caddy:2.8-alpine`
-- `freeswitch` base image — Phase 2 (Dockerfile not yet written)
 - `agent` base image — Phase 2/3 (Dockerfile not yet written)
+- (FreeSWITCH removed 2026-10-05; Telnyx is an external SIP trunk, no image to pin)
 
 ### Python (`.python-version`, `pyproject.toml`, `uv.lock`)
 - CPython 3.12 (resolved 3.12.13)

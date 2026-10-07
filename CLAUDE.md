@@ -5,7 +5,7 @@ This is ControlFreq's self-hosted AI call answering service. Read `docs/SPEC.md`
 ## Working rules
 
 1. Build in the phase order in SPEC §14. Do not start a phase until the previous phase's definition of done is met, tested and committed.
-2. **The best part is no part.** The system is six components (SPEC §2). Do not add a service, library, queue, cache, framework or SaaS without writing the reason in `docs/DECISIONS.md` and getting a yes from Noel. Prefer deleting over adding.
+2. **The best part is no part.** The system is six components (SPEC §2): RingCentral, Telnyx, LiveKit, Neon, Windmill, HubSpot. Telephony ingress is a Telnyx SIP trunk into LiveKit SIP — FreeSWITCH and the RingCentral SIP-registration hack were dropped on 2026-10-05 (see DECISIONS); do not reintroduce them. Do not add a service, library, queue, cache, framework or SaaS without writing the reason in `docs/DECISIONS.md` and getting a yes from Noel. Prefer deleting over adding.
 3. Synchronous work lives in the agent; asynchronous and human-in-the-loop work lives in Windmill. Nothing mid-call calls Windmill.
 4. HubSpot is the system of record for sales state. Neon is the receptionist's own store. Never duplicate a HubSpot field in Neon beyond the IDs needed to link records.
 5. Every model provider (STT, LLM, TTS) sits behind the interfaces in `agent/providers/`. Switching a provider must be a config change, never a code change.
