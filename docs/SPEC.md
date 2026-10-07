@@ -169,6 +169,7 @@ State-gated availability: `check_availability` and `book_meeting` are registered
 - **Noise cancellation:** none in MVP (self-hosted LiveKit; G.711 narrowband audio). Revisit with RNNoise or DeepFilterNet if needed.
 - **Latency budget:** ≤ 800 ms from caller end-of-turn to first audio. Measured and logged per turn (`events.type = turn_latency`).
 - **Recording:** **no audio recording in the MVP** — `record_session` / LiveKit egress / Telnyx recording are all dropped. Instead the full two-sided transcript (every turn, timestamped, roles agent/caller) is persisted to Neon `transcripts` for every call. `calls.recording_path` stays null (column kept for a later phase). Audio recording may return post-MVP (§15).
+- **CLI format:** Telnyx delivers the caller as `+E.164` (`+44…`). The agent passes it unchanged to `lookup_caller` (`search_contact_by_phone` normalises the `+` and matches both the national and `447…` forms — PR #4) and to Cal.com `attendeePhoneNumber`.
 - **Session end:** the agent POSTs `{call_id, room, started_at, ended_at, caller_e164, cli_present, intent, outcome, transcript[], extraction_draft, tool_results, recording_path}` to `WINDMILL_POST_CALL_WEBHOOK` with bearer `WINDMILL_WEBHOOK_TOKEN`. Retries 3× with backoff; on final failure the payload is written to Neon `events` for the `retention` job to replay.
 
 ## 9. HubSpot configuration
@@ -197,10 +198,10 @@ Self-hosted on the host, Postgres on Neon (`WINDMILL_DATABASE_URL`). Python scri
   2. `extract` — one LLM call over the full transcript with the §6 schema as a strict JSON schema; overrides the agent's draft.
   3. `score` — same rules as the agent (`config/scoring.yaml` from Neon); writes `lead_score`, `high_value`.
   4. `hubspot_upsert` — contact by phone/email, company by organisation name (create if missing), properties set.
-  5. `deal` — if `high_value` and intent `new_enquiry`: create a deal in `Inbound` at the stage matching outcome, associated to contact and company; idempotent on `cf_last_ai_call_id`.
+  5. `deal` — if `high_value` and intent `new_enquiry`: create a deal in the existing Sales Pipeline (`default`) at the stage matching outcome (Discovery booked → 6139983094, Qualified – not booked → 6139983093), associated to contact and company; idempotent on `cf_last_ai_call_id`.
   6. `call_engagement` — create the HubSpot call engagement (§9).
   7. `messages` — for each Neon `messages` row for this call: HubSpot note on the contact, or a task if `urgency = high`.
-  8. `transcript_log` — append this call's full transcript plus a short summary (caller, company, outcome, objections, questions we couldn't answer) to the running "Call transcripts" document for pitch review. Destination (Google Doc vs Notion) is an open question (§16 / `docs/QUESTIONS.md`); idempotent on `call_id` so reruns don't duplicate.
+  8. `transcript_log` — append this call to the **Notion** "Call transcripts" database (pitch review): one row per call — date, caller, company, outcome, and a short summary (objections, questions we couldn't answer) — with the full transcript in the page body, so it stays searchable/filterable. Idempotent on `call_id` so reruns don't duplicate. Needs `NOTION_API_KEY` + `NOTION_TRANSCRIPTS_DB_ID`.
   9. `finalise` — update Neon `calls` with HubSpot IDs and `processed_at`.
   Retries: 3 per step with backoff; on terminal failure, Slack message to Noel with `call_id` and step. Reruns are safe.
 - **Script `rc_missed_call_alert`** — port of the current n8n workflow (RingCentral webhook → Slack DM). Export the n8n workflow JSON into `windmill/rc_missed_call_alert/reference/` first; preserve behaviour exactly; then disable the n8n workflow.
@@ -211,10 +212,12 @@ Self-hosted on the host, Postgres on Neon (`WINDMILL_DATABASE_URL`). Python scri
 - **Host:** Ubuntu 24.04, 4 vCPU / 8 GB, UK region, public IPv4. Docker Compose, single file `infra/docker-compose.yml`.
 - **Services:** `redis`, `livekit`, `livekit-sip`, `agent`, `windmill-server`, `windmill-worker`, `caddy`. (No FreeSWITCH — Telnyx is an external SIP trunk, not a container.)
 - **Network:**
-  - LiveKit SIP must be reachable from Telnyx: publish its SIP signalling port and RTP range on the host, firewalled to Telnyx's SIP/media IP ranges only. The inbound trunk authenticates Telnyx (IP allowlist, and/or SIP credentials).
-  - CLI is carried in the SIP `From` / `P-Asserted-Identity` header from Telnyx and preserved into the room so `lookup_caller` can use it.
+  - LiveKit SIP must be reachable from Telnyx. Run `livekit-sip` either with `network_mode: host` (redis + livekit published on 127.0.0.1) or on the bridge with published ports **and `use_external_ip: true`** in `infra/livekit/sip.yaml` — without the external IP, SDP advertises the container's private address and calls connect with no audio. Phase 2 picks one (see `infra/telnyx/`).
+  - Firewall: Docker-published ports bypass `ufw` (they traverse the Docker NAT chain), so IP restrictions must go in the `DOCKER-USER` chain — or use host networking with `ufw`. Allow only Telnyx addresses.
+  - Inbound-only MVP needs no SIP credentials: auth is the **IP allowlist** on the LiveKit inbound trunk. Set the Telnyx connection's inbound SIP **region to Europe** — signalling then arrives only from `185.246.41.140` and `185.246.41.141` (the trunk `allowed_addresses`). Media comes from Telnyx's published subnets (sip.telnyx.com), which Telnyx extends over time, so build the host firewall from that page, not a one-off hard-code.
+  - CLI (`+E.164`, e.g. `+44…`) is carried in the SIP `From` / `P-Asserted-Identity` header and preserved into the room; the agent's handling of it is in §8.
   - Caddy terminates TLS for the Windmill UI and nothing else.
-- **Secrets:** `.env` on the host (mode 0600); Windmill variables for keys used by flows. Telnyx SIP credentials / API key live in `.env` (and Windmill variables where a flow needs them), never in the repo.
+- **Secrets:** `.env` on the host (mode 0600); Windmill variables for keys used by flows. The Telnyx API key (only needed to provision/manage or fetch via API) and the Notion credential for the Phase 4 transcript log (`NOTION_API_KEY`) live in `.env` (and Windmill variables where a flow needs them), never in the repo.
 - **Backups:** Neon handles the database (calls + transcripts). No audio recordings in the MVP. The repo is the configuration.
 - **Observability:** JSON logs to stdout; per-turn latency, tool latency and errors in Neon `events`. A SQL view `calls_today` is enough for MVP.
 
@@ -239,7 +242,7 @@ All are seeded into Neon by `scripts/seed_config.py`; the agent reads from Neon 
 
 **Phase 4 — Windmill.** `post_call` end to end; `rc_missed_call_alert` ported and n8n disabled; `retention` scheduled. *Done when:* a test call produces the HubSpot contact, deal, call engagement and Slack alert within 60 s of hang-up, and rerunning the flow changes nothing.
 
-**Phase 5 — Go-live.** All twenty test calls pass; `config/greeting.yaml` wording approved by Noel; RingCentral after-hours rule and no-answer forwarding set to the extension; go-live checklist in `docs/STATUS.md` signed off. Two weeks after-hours only with every transcript reviewed, then overflow.
+**Phase 5 — Go-live.** All twenty test calls pass; `config/greeting.yaml` wording approved by Noel; RingCentral after-hours rule and no-answer forwarding set to divert to the Telnyx number; go-live checklist in `docs/STATUS.md` signed off. Two weeks after-hours only with every transcript reviewed, then overflow.
 
 ## 15. After the MVP (not now)
 

@@ -33,7 +33,7 @@
 - **No audio recording (decided 2026-10-07):** no `record_session` / egress / Telnyx recording; full two-sided, timestamped transcripts in Neon are the record of each call (SPEC §8).
 - **To build:** `scripts/provision_livekit.py` (inbound trunk locked to Telnyx + dispatch rule); `infra/telnyx/` connection/DID notes; a minimal "speak one line" agent; the RingCentral divert configured.
 - **DoD:** dialling the Telnyx number (directly and via the RingCentral divert) plays the line, a LiveKit room appears, and the Neon `calls` row shows the correct CLI.
-- **Phase 4 (note):** `post_call` will also append each transcript + short summary to a running "Call transcripts" pitch-review doc; destination (Google Doc vs Notion) is open in QUESTIONS.
+- **Phase 4 (note):** `post_call` will also append each call to the **Notion** "Call transcripts" database (one row per call; full transcript in the page body) for pitch review — destination decided 2026-10-07.
 - **Blocked:** no Telnyx credentials yet (account upgrade pending Telnyx support); open questions in QUESTIONS (CLI-on-divert, UK regulatory).
 
 ## Blocked

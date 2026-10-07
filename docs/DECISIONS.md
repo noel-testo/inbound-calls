@@ -8,15 +8,18 @@ Record every architecture decision and every pinned version here. One entry per 
   "UK number type" open question.
 - **No audio recording in the MVP.** `record_session`, LiveKit egress and Telnyx call recording are all
   dropped. The **full two-sided, timestamped transcript** (roles agent/caller) persisted to Neon
-  `transcripts` is the record of every call. `calls.recording_path` stays null (the column and
-  `RECORDINGS_DIR` / `RECORDING_RETENTION_DAYS` are kept but unused in the MVP). Audio recording may
-  return post-MVP (SPEC §15). The greeting disclosure should change from "recorded" to a call-logging
+  `transcripts` is the record of every call. `calls.recording_path` stays null and is the
+  only recording placeholder; `RECORDINGS_DIR` / `RECORDING_RETENTION_DAYS` dropped from `.env.example`.
+  Audio recording may return post-MVP (SPEC §15). The greeting disclosure should change from "recorded" to a call-logging
   notice — flagged for Noel (caller-facing wording).
 - **Phase 4 `post_call` appends a pitch-review log.** A new `transcript_log` step appends each call's
   transcript + a short summary (caller, company, outcome, objections, questions we couldn't answer) to a
   running "Call transcripts" document, for reviewing how pitches land. Idempotent on `call_id`.
-  **Destination — Google Doc vs Notion — is an open question** (QUESTIONS). This is the first transcript
-  data to leave the host, so SPEC §2 principle 7 was updated to allow it.
+  **Destination: Notion** (decided 7 Oct) — a Notion database, one row per call (date, caller, company,
+  outcome, summary; full transcript in the page body), not an ever-growing page, so it stays searchable.
+  `NOTION_API_KEY` + `NOTION_TRANSCRIPTS_DB_ID` to come. This is the first transcript data to leave the
+  host, so SPEC §2 principle 7 was updated to allow it; a retention rule for this personal data is open
+  for Noel (QUESTIONS).
 
 ## 2026-10-05 — Drop FreeSWITCH + RingCentral SIP; Telnyx SIP trunk for ingress (Noel)
 
