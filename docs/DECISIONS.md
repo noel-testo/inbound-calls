@@ -10,11 +10,16 @@ Record every architecture decision and every pinned version here. One entry per 
   `upsert_contact` (create + update-by-email), `upsert_company`, `create_deal` (Sales Pipeline
   `default`, stage 6139983093), `create_call` (associated) all succeeded; records deleted afterwards.
   The service key has CRM read + write + delete.
-- **Phone-search format fix (verified live):** HubSpot's `hs_searchable_calculated_phone_number` stores
-  the E.164 number **without the '+'** (e.g. `447700900123`), not the bare national number. The earlier
-  "national number minus +44/leading 0" was wrong and never matched. `search_contact_by_phone` now
-  matches on the E.164-without-plus form (`_searchable_number`); a live lookup found the contact after
-  ~5s of search-index lag. Unit test updated.
+- **Phone-search (corrected after DevOps review, 2026-10-05):** HubSpot stores
+  `hs_searchable_calculated_*_number` as the **national significant number** (country code stripped) for
+  numbers it can parse — verified live: +44 7917 528642 → `7917528642`, +386 40 414 559 → `40414559`.
+  Only unparseable numbers (e.g. Ofcom's 07700 900xxx drama range) fall back to raw E.164 digits — which
+  is why an interim fix that matched the `447…` form looked right against the fiction test number but
+  broke real contacts. `search_contact_by_phone` now matches **both** the national number and the
+  E.164-without-plus form via one `IN` filter per property (2 groups), using the **`phonenumbers`** dep
+  (libphonenumber, as HubSpot does) to derive the national number for any country. Re-verified live
+  against a real-format UK mobile (`+447400123456` → stored `7400123456`, found). Supersedes the interim
+  `_searchable_number` change from PR #3.
 
 ## 2026-10-05 — Discovery-call booking moves to Cal.com (Noel)
 

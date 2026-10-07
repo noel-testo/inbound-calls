@@ -13,6 +13,7 @@ import httpx
 import pytest
 
 from agent.hubspot import HubSpotClient, HubSpotError
+from agent.hubspot.client import _phone_search_values
 
 
 class Recorder:
@@ -44,6 +45,13 @@ def make_client(recorder: Recorder, **kw) -> HubSpotClient:
     return HubSpotClient("test", client=ac, **kw)
 
 
+def test_phone_search_values():
+    # UK +44 and 0-national both yield [national, e164-without-plus]; non-UK too.
+    assert _phone_search_values("+44 7917 528642") == ["7917528642", "447917528642"]
+    assert _phone_search_values("07769265959") == ["7769265959", "447769265959"]
+    assert _phone_search_values("+386 40 414 559") == ["40414559", "38640414559"]
+
+
 async def test_search_contact_by_phone_found():
     rec = Recorder(
         {
@@ -70,7 +78,7 @@ async def test_search_contact_by_phone_found():
         }
     )
     client = make_client(rec)
-    out = await client.search_contact_by_phone("+447700900123")
+    out = await client.search_contact_by_phone("+447917528642")
     assert out == {
         "found": True,
         "contact_id": "501",
@@ -82,12 +90,15 @@ async def test_search_contact_by_phone_found():
     }
     sent = rec.body(0)
     assert len(sent["filterGroups"]) == 2
-    pairs = {
-        (g["filters"][0]["propertyName"], g["filters"][0]["value"]) for g in sent["filterGroups"]
-    }
-    assert pairs == {
-        ("hs_searchable_calculated_phone_number", "447700900123"),
-        ("hs_searchable_calculated_mobile_number", "447700900123"),
+    props = set()
+    for g in sent["filterGroups"]:
+        f = g["filters"][0]
+        assert f["operator"] == "IN"
+        assert f["values"] == ["7917528642", "447917528642"]
+        props.add(f["propertyName"])
+    assert props == {
+        "hs_searchable_calculated_phone_number",
+        "hs_searchable_calculated_mobile_number",
     }
     await client.aclose()
 

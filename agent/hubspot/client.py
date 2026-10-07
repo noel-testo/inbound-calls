@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 
 import httpx
+import phonenumbers
 
 from .errors import HubSpotError
 
@@ -37,17 +38,27 @@ PHONE_SEARCH_PROPS = (
 )
 
 
-def _searchable_number(phone: str) -> str:
-    """The digits HubSpot stores in `hs_searchable_calculated_*_number`: the E.164
-    number without the leading '+' (verified live — "+447700900123" is stored as
-    "447700900123"). A UK national number (leading 0) is normalised to the 44 prefix.
+def _phone_search_values(phone: str) -> list[str]:
+    """Values to match against HubSpot's `hs_searchable_calculated_*_number`.
+
+    HubSpot normalises a valid number to its national significant number, country code
+    stripped — e.g. +44 7917 528642 -> "7917528642", +386 40 414 559 -> "40414559"
+    (both verified live against the portal). A number it cannot parse (e.g. Ofcom's
+    07700 900xxx drama range) falls back to the raw E.164 digits. So we match on both
+    the national number and the E.164-without-plus form via an IN filter. Uses
+    libphonenumber, as HubSpot does.
     """
     p = phone.strip().replace(" ", "")
-    if p.startswith("+"):
-        return p[1:]
-    if p.startswith("0"):
-        return "44" + p[1:]
-    return p
+    values: list[str] = []
+    try:
+        num = phonenumbers.parse(p, "GB")  # default region GB for 0-prefixed national input
+        values.append(str(num.national_number))
+        values.append(phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)[1:])
+    except phonenumbers.NumberParseException:
+        values.append(p[1:] if p.startswith("+") else p)
+        if p.startswith("0"):
+            values.append("44" + p[1:])
+    return list(dict.fromkeys(v for v in values if v))
 
 
 class HubSpotClient:
@@ -140,11 +151,12 @@ class HubSpotClient:
     async def _find_contact_by_phone(
         self, phone: str, properties: list[str], *, timeout: float | None = None
     ) -> dict | None:
-        """Search a contact on HubSpot's calculated searchable phone properties by the
-        E.164-without-plus form — 2 filter groups (HubSpot allows at most 5)."""
-        value = _searchable_number(phone)
+        """Search a contact on HubSpot's calculated searchable phone properties, matching
+        the national and E.164-without-plus forms via one IN filter per property — 2 filter
+        groups (HubSpot allows at most 5)."""
+        values = _phone_search_values(phone)
         filter_groups = [
-            {"filters": [{"propertyName": prop, "operator": "EQ", "value": value}]}
+            {"filters": [{"propertyName": prop, "operator": "IN", "values": values}]}
             for prop in PHONE_SEARCH_PROPS
         ]
         payload = {"filterGroups": filter_groups, "properties": properties, "limit": 1}
@@ -155,9 +167,9 @@ class HubSpotClient:
     async def search_contact_by_phone(
         self, phone_e164: str, *, timeout: float | None = None
     ) -> dict | None:
-        """Find a contact by the E.164-without-plus form against HubSpot's calculated
-        searchable phone/mobile properties (SPEC §7). Returns the compact shape the
-        lookup tool speaks from, or None."""
+        """Find a contact by phone against HubSpot's calculated searchable phone/mobile
+        properties (SPEC §7), matching both the national and E.164 forms. Returns the
+        compact shape the lookup tool speaks from, or None."""
         c = await self._find_contact_by_phone(
             phone_e164,
             ["firstname", "company", "lifecyclestage", "cf_ai_call_summary"],
