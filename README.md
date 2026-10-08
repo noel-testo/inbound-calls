@@ -12,4 +12,4 @@ Self-hosted AI call answering for ControlFreq. Answers after-hours and unanswere
 - `db/schema.sql` — Neon `receptionist` schema
 - `infra/docker-compose.yml` — the host stack
 
-Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + UK DID) → LiveKit → Python agent → HubSpot, with Windmill for post-call work and Neon as the store. Discovery-call booking is on Cal.com. No GPU in the MVP; model providers are hosted and swappable.
+Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + London 020 DID) → **ElevenLabs Agents** (the voice loop) → a small HTTPS webhook service we host → HubSpot, with Windmill for post-call work and Neon as the record. Discovery-call booking is on Cal.com; the transcript log is a Notion database. No audio recording in the MVP.

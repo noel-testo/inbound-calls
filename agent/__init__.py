@@ -1,1 +1,1 @@
-"""ControlFreq AI receptionist — LiveKit Agents worker. Wired in Phase 2/3."""
+"""ControlFreq AI receptionist — HTTPS webhook service for ElevenLabs Agents. Wired in Phase 3."""
