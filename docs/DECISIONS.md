@@ -2,6 +2,44 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-07 — ElevenLabs Agents replaces LiveKit + the Python agent (Noel)
+
+- **The voice loop moves to ElevenLabs Agents.** LiveKit (server + SIP + Redis) and the self-hosted
+  Python LiveKit-Agents worker are dropped. Telnyx stays the carrier (London 020) and trunks straight to
+  ElevenLabs over SIP; RingCentral still forwards after-hours / no-answer calls to the 020 number.
+- **Telnyx → ElevenLabs trunk:** Telnyx FQDN SIP connection to `sip.rtc.elevenlabs.io`, inbound
+  `+E.164`, TCP (5060) or TLS (5061); no digest auth, so Allowed Source IPs EU `185.246.41.140`/`.141`
+  (TCP/TLS only); Allowed Numbers empty; G.711/G.722. The 020 number is imported into ElevenLabs.
+- **Caller lookup + tools via webhooks.** No SIP or agent code on our host; one small HTTPS **webhook
+  service** (replaces the `agent` container): a **conversation-init** webhook (pre-call: reads
+  `system__caller_id`, does the HubSpot lookup, returns `dynamic_variables` + `first_message` greeting +
+  `asr.keywords` from Neon config — how §13 "config at call start" survives) and **tool webhooks**
+  (`check_availability`, `book_meeting`, `take_message`) authed by a secret header, allowlisting
+  ElevenLabs egress IPs (EU `35.204.38.71`/`34.147.113.54`, US `34.67.146.145`/`34.59.11.47`). Changes
+  §2.2 (tools are no longer Python functions in a worker) and §12 (Caddy also fronts this service).
+- **Post-call** `post_call_transcription` webhook (HMAC `ElevenLabs-Signature`, **not** a bearer) → the
+  webhook service verifies with the raw body, returns 200, triggers Windmill `post_call`. Idempotent on
+  `conversation_id`; failed writes logged not dropped (ElevenLabs retries; refetchable 30 days;
+  auto-disables after 10 consecutive failures).
+- **No audio recording is not the ElevenLabs default:** set `platform_settings.privacy.record_voice:
+  false` and leave the webhook "Send audio data" off; `retention_days: 30` (default is 2 years). Neon is
+  the record; Notion rows kept 12 months. Both privacy fields live in the agent config JSON.
+- **Dropped:** `redis`, `livekit`, `livekit-sip`, the LiveKit worker, `agent/providers/`,
+  `infra/livekit/`, `provision_livekit`; `.env.example` loses `LIVEKIT_*` and the STT/LLM/TTS provider
+  vars and gains `ELEVENLABS_API_KEY` / `ELEVENLABS_AGENT_ID` / `ELEVENLABS_WEBHOOK_SECRET` /
+  `ELEVENLABS_TOOL_SECRET` + `WEBHOOK_DOMAIN`. `agent/hubspot/` + `agent/calcom/` are reused by the tool
+  webhooks. `ELEVENLABS_API_KEY` is in Noel's `.env`, not the repo.
+- **Settled on review (2026-10-09, Noel):**
+  - **Agent name: Cody.** The ElevenLabs agent introduces itself as Cody in the greeting (the AI-assistant
+    disclosure names it) — wording lives in `config/greeting.yaml` (§13), delivered as `first_message`.
+  - **Voice: `jRAAK67SEFE9m7ci5DhD`** (British English) — pinned as the agent's `voice_id`, no longer open.
+  - **Retention: 30 days, audio off — confirmed.** `retention_days: 30` and `record_voice: false` stand;
+    ElevenLabs processing + storage of transcripts accepted (EU data residency is Enterprise-only).
+  - **Discovery call: 15 minutes.** Matches the Cal.com event (7103844); the 30-minute wording in the
+    prompt/spec is corrected to 15. See the discovery-call-duration question (now Answered).
+- **Docs/plan only** for now; the Phase 2 build is still blocked on the Telnyx account upgrade.
+- **For Noel (remaining action):** create the post-call HMAC secret + the tool-auth secret in `.env`.
+
 ## 2026-10-07 — Notion "Call transcripts" retention: 12 months (Noel)
 
 - The Notion pitch-review "Call transcripts" rows are kept for **12 months**, then deleted automatically

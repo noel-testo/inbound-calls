@@ -1,6 +1,9 @@
-# TLS for the Windmill UI only (SPEC §12). The domain comes from ../.env
-# (WINDMILL_DOMAIN); Caddy obtains and renews a certificate automatically over
-# ports 80/443. Nothing else is terminated here.
+# TLS for the two HTTPS surfaces on this host: the Windmill UI and the ElevenLabs webhook service.
+# Domains come from ../.env (WINDMILL_DOMAIN, WEBHOOK_DOMAIN); Caddy auto-obtains certs over 80/443.
 {$WINDMILL_DOMAIN} {
 	reverse_proxy windmill-server:8000
+}
+
+{$WEBHOOK_DOMAIN} {
+	reverse_proxy agent:8080
 }

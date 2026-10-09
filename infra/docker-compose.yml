@@ -1,53 +1,15 @@
-# Inbound Calls — host stack. Phase 0: pin every image tag and record it in docs/DECISIONS.md.
-# All secrets come from ../.env. Ingress is a Telnyx SIP trunk into livekit-sip (Phase 2);
-# RingCentral diverts the office number to the Telnyx DID. No FreeSWITCH.
+# Inbound Calls — host stack. Pin every image tag (docs/DECISIONS.md). All secrets from ../.env.
+# Ingress is Telnyx → ElevenLabs (external) and the voice loop is ElevenLabs. This host runs only the
+# webhook service (ElevenLabs calls it), Windmill on Neon, and Caddy for TLS. No LiveKit / Redis / SIP.
 
 services:
-  redis:
-    image: redis:7.4-alpine
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-
-  livekit:
-    image: livekit/livekit-server:v1.13.7
-    restart: unless-stopped
-    command: --config /etc/livekit.yaml
-    volumes:
-      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
-    environment:
-      # API key/secret injected here, never written into livekit.yaml.
-      # Requires `--env-file ../.env` at compose parse time (see docs/DECISIONS.md).
-      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
-    depends_on: [redis]
-    # Not published: the agent and livekit-sip reach it on the compose network.
-
-  livekit-sip:
-    image: livekit/sip:v1.17.0
-    restart: unless-stopped
-    volumes:
-      - ./livekit/sip.yaml:/etc/sip.yaml:ro
-    environment:
-      SIP_CONFIG_FILE: /etc/sip.yaml
-      LIVEKIT_WS_URL: ws://livekit:7880
-      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
-    depends_on: [livekit, redis]
-    # Phase 2: reachable from Telnyx only. See SPEC §12 for the networking choice
-    # (network_mode: host or use_external_ip: true) and the ufw/DOCKER-USER firewall note.
-    # Publish 5060 on BOTH TCP and UDP (the Telnyx connection uses TCP) + the RTP range,
-    # allowlisted to Telnyx. Inbound-only: IP allowlist, no SIP credentials.
-
   agent:
-    build: ../agent                  # Phase 2/3: Dockerfile added here
+    build: ../agent                  # the webhook service (FastAPI); Dockerfile added in Phase 3
     restart: unless-stopped
     env_file: ../.env
-    depends_on: [livekit]
     volumes:
       - ../config:/app/config:ro
+    # No public ports: Caddy terminates TLS and reverse-proxies ElevenLabs' webhook calls here.
 
   windmill-server:
     image: ghcr.io/windmill-labs/windmill:v1.822.0
@@ -55,7 +17,6 @@ services:
     environment:
       DATABASE_URL: ${WINDMILL_DATABASE_URL}
       MODE: server
-    depends_on: []
 
   windmill-worker:
     image: ghcr.io/windmill-labs/windmill:v1.822.0   # same tag as server
@@ -74,10 +35,11 @@ services:
       - "443:443"
     environment:
       WINDMILL_DOMAIN: ${WINDMILL_DOMAIN}
+      WEBHOOK_DOMAIN: ${WEBHOOK_DOMAIN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-    depends_on: [windmill-server]
+    depends_on: [windmill-server, agent]
 
 volumes:
   caddy_data:

@@ -7,8 +7,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 - **Business hours** for `config/greeting.yaml` and for "after hours". *Default:* Mon–Fri 09:00–17:30.
 - **Greeting, closing, emergency instruction** wording. *Default:* the TODO placeholders stay until approved; blocking for Phase 5.
-- **Voice:** Cartesia or ElevenLabs, and which British English voice. *Default:* Cartesia, first suitable British voice, for Phase 3 testing only.
-- **LLM endpoint for the MVP:** which hosted model behind `LLM_BASE_URL`. *Default:* whichever is already paid for; swapped later.
+- **LLM:** ElevenLabs hosts the agent's LLM in the MVP; a custom LLM via ElevenLabs' custom-LLM setting (`LLM_BASE_URL`) is a post-MVP option (§15). *Default:* ElevenLabs' model, tuned for the latency budget.
 - **Scoring:** confirm or change weights and the threshold (50) in `config/scoring.yaml`. *Default:* as shipped.
 - **Retention:** no audio recordings in the MVP (SPEC §8), so this is Neon transcripts only — keep them indefinitely? *Default:* kept indefinitely until Noel sets a policy. (Notion rows are 12 months — Answered.)
 - **Host:** existing server or a new UK VPS; who holds root. *Default:* new VPS, 4 vCPU / 8 GB.
@@ -17,8 +16,7 @@ questions are raised in the session immediately and recorded here afterwards.
 - **Terms list:** product names, staff names, major client and site names for `config/terms.yaml`. *Default:* placeholders.
 - **Apollo → HubSpot sync:** confirm it is one-way (enrichment only) so the agent is the only thing creating deals. *Default:* assume yes.
 - **Windmill public hostname + DNS** for Caddy TLS (`WINDMILL_DOMAIN`). *Default:* a subdomain on a ControlFreq domain (e.g. `windmill.controlfreq.…`) A-record'd to the host; set in `.env` at bring-up.
-- **Discovery-call duration (for Noel):** `config/prompt.md` still offers a *30-minute* discovery call, but the Cal.com event 7103844 ("LiftPulse Trial") is *15 minutes*. Which is right? *Default:* follow the Cal.com event (15 min) and update the prompt wording (caller-facing — Noel's call).
-- **Telnyx account + DID (Phase 2):** account upgrade is blocked on Telnyx support; no credentials yet. Needed: a London 020 DID + a SIP connection pointing at LiveKit SIP. UK number KYC: ID, company registration certificate, utility bill < 3 months old (~72h to validate). *Default:* none; blocking for the Phase 2 live test.
+- **Telnyx account + DID (Phase 2):** account upgrade is blocked on Telnyx support; no credentials yet. Needed: a London 020 DID + an FQDN SIP connection to `sip.rtc.elevenlabs.io` (the number imported into ElevenLabs). UK number KYC: ID, company registration certificate, utility bill < 3 months old (~72h to validate). *Default:* none; blocking for the Phase 2 live test.
 - **CLI on RingCentral divert:** does RingCentral present the *original caller's* CLI when it diverts externally to Telnyx, or its own number? The HubSpot lookup needs the original. *Default:* divert from an **extension / user forwarding rule, not an IVR / call-flow node** — RingCentral preserves the original CLI on the former but shows its own number on the latter even with Preserve Caller ID on; verify before go-live (Noel can test now by forwarding to a mobile).
 - **UK regulatory:** Ofcom CLI/presentation rules, 999/112 emergency-call handling (whether the AI line must support/route them), and number-registration obligations. *Default:* the AI line is inbound-only and not advertised as an emergency contact; the greeting's emergency wording directs callers elsewhere; confirm obligations before go-live.
 
@@ -32,5 +30,9 @@ questions are raised in the session immediately and recorded here afterwards.
 - **UK number type:** London **020** local (geographic) Telnyx DID. (2026-10-07)
 - **Audio recording:** none in the MVP — no `record_session` / egress / Telnyx recording; the full two-sided, timestamped Neon transcript is the record of each call (SPEC §8). Audio recording deferred post-MVP. (2026-10-07)
 - **"Call transcripts" doc destination:** **Notion** (not Google Docs) — a Notion database, one row per call (date, caller, company, outcome, summary; full transcript in the page body) so it stays searchable/filterable. `NOTION_API_KEY` + `NOTION_TRANSCRIPTS_DB_ID` to come. (2026-10-07)
-- **LiveKit SIP exposure:** resolved — `livekit-sip` runs with host networking or `use_external_ip: true`; firewall via the `DOCKER-USER` chain (ufw bypass); Telnyx EU region; signalling allowlist 185.246.41.140 / .141 (SPEC §12 / `infra/telnyx/`). Open tail: confirm Telnyx media ranges when the account is live. (2026-10-07)
 - **Pitch-review doc (Notion) retention:** rows kept **12 months**, then deleted by the Windmill `retention` job (alongside the Neon transcript policy). (2026-10-07)
+- **Voice loop platform:** **ElevenLabs Agents** replaces LiveKit SIP and the self-hosted Python agent; Telnyx trunks straight to ElevenLabs. LiveKit/Redis/SIP and the SIP-exposure question are moot (SIP terminates at ElevenLabs). (2026-10-07)
+- **Agent name:** **Cody** — the ElevenLabs agent introduces itself as Cody in the greeting (`config/greeting.yaml`, delivered as `first_message`). (2026-10-09)
+- **Agent voice:** ElevenLabs voice `jRAAK67SEFE9m7ci5DhD` (British English), pinned as the agent's `voice_id`. (2026-10-09)
+- **ElevenLabs retention + data processing:** `retention_days: 30` with `record_voice: false` (audio off); ElevenLabs processing + storage of transcripts accepted (EU data residency is Enterprise-only). Noel still creates the post-call HMAC + tool-auth secrets in `.env`. (2026-10-09)
+- **Discovery-call duration:** **15 minutes**, matching the Cal.com event 7103844; the 30-minute wording in the prompt/spec is corrected to 15. (2026-10-09)

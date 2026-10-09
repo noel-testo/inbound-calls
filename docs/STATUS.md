@@ -1,6 +1,6 @@
 # Status
 
-**Current phase:** 1 complete ✅ (HubSpot CRM + Cal.com booking) · Phase 0 host bring-up still outstanding · next: Phase 2 (telephony)
+**Current phase:** 1 complete ✅ (HubSpot + Cal.com) · **architecture pivot 2026-10-08: ElevenLabs Agents replaces LiveKit + the Python agent** (docs PR) · Phase 0 host bring-up + Phase 2 telephony blocked on Telnyx
 **Last updated:** 2026-10-07
 
 ## Done
@@ -20,7 +20,7 @@
 - **Phase 1 merged to `main`** (squash `06e4924`, PR #2): `agent/hubspot/` CRM client (`search_contact_by_phone` via `hs_searchable_calculated_*` on the national number, `upsert_contact`, `upsert_company`, `create_deal`, `create_call`), `agent/calcom/` booking client (`get_availability`, `book_meeting` — Cal.com API v2, event 7103844; **live booking verified + cancelled 2026-10-05**), and `scripts/provision_hubspot.py` (idempotent: group pre-check + 12 `cf_` properties per §9; `--dry-run` verified). Service-Key auth; pipeline/stages/owner + Cal.com key in `.env.example`. 17 unit tests; ruff + format clean.
 
 ## Next — one host item to close Phase 0 DoD
-- **Bring up the stack on the host:** on the server, with `.env` present, run `cd infra && docker compose --env-file ../.env up -d redis livekit livekit-sip windmill-server windmill-worker caddy`. DoD: all five containers healthy and the Windmill UI reachable over HTTPS.
+- **Bring up the stack on the host:** with `.env` present, `cd infra && docker compose --env-file ../.env up -d agent windmill-server windmill-worker caddy`. DoD: containers healthy and the Windmill UI reachable over HTTPS. (No redis/livekit — the voice loop is ElevenLabs.)
 
 ## Phase 1 — HubSpot CRM + Cal.com booking — ✅ COMPLETE (2026-10-05)
 - **Done:** `agent/hubspot/` CRM client, `agent/calcom/` booking client, and `scripts/provision_hubspot.py` scaffolded + unit-tested (17 tests). Booking = Cal.com event 7103844 ("LiftPulse Trial", 15-min, auto-confirmed). HubSpot pipeline = existing "Sales Pipeline" (`default`); stages Lead Identified (6139983093) / Initial Contact (6139983094); expert Noel Sesto (owner 99735767).
@@ -28,11 +28,11 @@
 - **HubSpot provisioned on `main` (2026-10-05):** `provision_hubspot.py` created the property group + 12 `cf_` properties; idempotent re-run = all "exists". CRM clients live-tested against a throwaway "Noel Test": upsert contact (create + update-by-email), company, deal (pipeline `default`, stage 6139983093), call — all OK; records deleted. Phone lookup matches HubSpot's calculated searchable properties on both the national number and the E.164-without-plus form (one `IN` filter per property, via `phonenumbers`), re-verified live against a real-format UK mobile — see the 2026-10-05 correction in DECISIONS.
 - **DoD met.** Deferred to Phase 3: wiring both clients into the agent tools.
 
-## Phase 2 — Telephony (Telnyx + LiveKit SIP) — scope (revised 2026-10-07)
-- **Ingress:** RingCentral stays the office PBX; its after-hours / no-answer rules divert the main number to a **London 020** Telnyx DID, which routes over a Telnyx SIP trunk to **LiveKit SIP** (IP-restricted to Telnyx). CLI preserved for the HubSpot lookup. **FreeSWITCH and the RingCentral SIP-registration hack are dropped.**
-- **No audio recording (decided 2026-10-07):** no `record_session` / egress / Telnyx recording; full two-sided, timestamped transcripts in Neon are the record of each call (SPEC §8).
-- **To build:** `scripts/provision_livekit.py` (inbound trunk locked to Telnyx + dispatch rule); `infra/telnyx/` connection/DID notes; a minimal "speak one line" agent; the RingCentral divert configured.
-- **DoD:** dialling the Telnyx number (directly and via the RingCentral divert) plays the line, a LiveKit room appears, and the Neon `calls` row shows the correct CLI.
+## Phase 2 — Telephony (Telnyx → ElevenLabs Agents) — scope (revised 2026-10-08)
+- **Ingress:** RingCentral diverts after-hours / no-answer calls to a **London 020** Telnyx DID; Telnyx trunks over SIP to **ElevenLabs Agents** (`sip.rtc.elevenlabs.io`), which runs the whole voice loop. CLI preserved for the HubSpot lookup. **LiveKit, the Python agent, FreeSWITCH and RingCentral SIP registration are all dropped.**
+- **No audio recording:** ElevenLabs `record_voice: false`, post-call audio off; full two-sided, timestamped transcripts in Neon are the record of each call (SPEC §8).
+- **To build:** the Telnyx FQDN trunk + number import into ElevenLabs; the ElevenLabs agent (prompt, voice, privacy, tools, conversation-init); the HTTPS webhook service (`agent/`); the RingCentral divert configured.
+- **DoD:** dialling the number (directly and via the RingCentral divert) reaches the ElevenLabs agent with the correct CLI, and a Neon `calls` row is created from the post-call webhook.
 - **Phase 4 (note):** `post_call` will also append each call to the **Notion** "Call transcripts" database (one row per call; full transcript in the page body) for pitch review — destination decided 2026-10-07.
 - **Blocked:** no Telnyx credentials yet (account upgrade pending Telnyx support); open questions in QUESTIONS (CLI-on-divert, UK regulatory).
 
