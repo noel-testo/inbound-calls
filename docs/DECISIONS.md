@@ -2,6 +2,12 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-07 — Notion "Call transcripts" retention: 12 months (Noel)
+
+- The Notion pitch-review "Call transcripts" rows are kept for **12 months**, then deleted automatically
+  by the Windmill `retention` job (alongside the Neon transcript policy). Resolves the pitch-review-doc
+  data-retention question; the Retention line no longer says "until Noel sets a policy" for Notion.
+
 ## 2026-10-07 — London 020 number; no audio recording; transcript pitch-review doc (Noel)
 
 - **Telnyx DID is a London 020 local (geographic) number**, not an 03 non-geographic. Resolves the

@@ -36,8 +36,10 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
     depends_on: [livekit, redis]
-    # Phase 2: reachable from Telnyx only — publish the SIP port + RTP range on the host,
-    # firewalled to Telnyx's IP ranges. The inbound trunk authenticates Telnyx.
+    # Phase 2: reachable from Telnyx only. See SPEC §12 for the networking choice
+    # (network_mode: host or use_external_ip: true) and the ufw/DOCKER-USER firewall note.
+    # Publish 5060 on BOTH TCP and UDP (the Telnyx connection uses TCP) + the RTP range,
+    # allowlisted to Telnyx. Inbound-only: IP allowlist, no SIP credentials.
 
   agent:
     build: ../agent                  # Phase 2/3: Dockerfile added here
