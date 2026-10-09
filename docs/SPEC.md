@@ -27,7 +27,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 ## 3. Scope
 
 ### In scope (MVP)
-- Ingress: RingCentral after-hours / no-answer forwarding diverts the main office number to a Telnyx London 020 number, which trunks over SIP to **ElevenLabs Agents**. Caller ID (`+E.164`) is preserved so the HubSpot phone lookup works.
+- Ingress: RingCentral after-hours / no-answer forwarding diverts the main office number to a Telnyx UK 0330 number, which trunks over SIP to **ElevenLabs Agents**. Caller ID (`+E.164`) is preserved so the HubSpot phone lookup works.
 - Intents: `new_enquiry`, `existing_customer`, `supplier_or_sales`, `other`.
 - Pre-call: CLI lookup in HubSpot.
 - Qualification against the schema in §6, scoring per `config/scoring.yaml`.
@@ -44,7 +44,7 @@ Live transfer to a human; daytime overflow before after-hours has run clean; out
 ## 4. Architecture
 
 ```
-Caller ─PSTN─▶ RingCentral (office PBX) ─(after-hours / no-answer divert)─▶ Telnyx London 020
+Caller ─PSTN─▶ RingCentral (office PBX) ─(after-hours / no-answer divert)─▶ Telnyx UK 0330
                                                           │ SIP trunk → sip.rtc.elevenlabs.io
                                                           │ (TCP/TLS, +E.164, CLI preserved)
                                                           ▼
@@ -65,8 +65,8 @@ Caller ─PSTN─▶ RingCentral (office PBX) ─(after-hours / no-answer divert
 | Component | Role | Notes |
 |---|---|---|
 | RingCentral | Office phone system; ingress divert | Existing office PBX. The after-hours rule and no-answer forwarding on the main number divert the call externally to the Telnyx DID. No SIP registration, no receptionist device. Later: a route for human transfer. |
-| Telnyx | SIP trunk + DID | A London **020** geographic DID on a Telnyx FQDN SIP connection to `sip.rtc.elevenlabs.io` (TCP/TLS, inbound `+E.164`). Preserves CLI. No call recording (§8). |
-| ElevenLabs Agents | The receptionist (voice loop) | Hosts STT · LLM · TTS · turn-taking. The 020 number is imported from the SIP trunk. Calls our webhook service for caller lookup (conversation-init) and mid-call tools, and posts the signed transcript on hang-up (§7, §8). Privacy: `record_voice: false`, `retention_days: 30`. |
+| Telnyx | SIP trunk + DID | A UK **0330** non-geographic DID (`+443301900784`) on a Telnyx FQDN SIP connection to `sip.rtc.elevenlabs.io` (TCP/TLS, inbound `+E.164`). Preserves CLI. No call recording (§8). |
+| ElevenLabs Agents | The receptionist (voice loop) | Hosts STT · LLM · TTS · turn-taking. The 0330 number is imported from the SIP trunk. Calls our webhook service for caller lookup (conversation-init) and mid-call tools, and posts the signed transcript on hang-up (§7, §8). Privacy: `record_voice: false`, `retention_days: 30`. |
 | Webhook service | Our glue (HTTPS) | One small service we host (replaces the Python agent): conversation-init (caller lookup + dynamic vars from Neon config), tool webhooks (`check_availability`, `book_meeting`, `take_message`), and the HMAC-verified post-call receiver that triggers Windmill. Calls HubSpot/Cal.com/Neon. |
 | Neon | Store | Project with two databases: `receptionist` (schema in `db/schema.sql`) and `windmill`. |
 | Windmill | Async + human-in-the-loop | Self-hosted on the host, database on Neon. Flow `post_call`, script `rc_missed_call_alert`, schedule `retention`. |
@@ -228,7 +228,7 @@ All are seeded into Neon by `scripts/seed_config.py`; the **conversation-init we
 
 **Phase 1 — HubSpot + Cal.com.** `provision_hubspot.py` creates the `cf_` properties (the pipeline is the existing Sales Pipeline, not created); `agent/hubspot/` CRM client (`search_contact_by_phone`, `upsert_contact`, `upsert_company`, `create_deal`, `create_call`) and `agent/calcom/` booking client (`get_availability`, `book_meeting`). *Done when:* a test script books a real Cal.com slot, it appears in Google Calendar, the confirmation email arrives, and unit tests pass against fixtures.
 
-**Phase 2 — Telephony.** A Telnyx London 020 DID on an FQDN SIP connection to `sip.rtc.elevenlabs.io` (TCP/TLS, inbound `+E.164`, Allowed Source IPs `185.246.41.140`/`.141`); the number is imported into ElevenLabs from the SIP trunk; a minimal ElevenLabs agent answers with one fixed line. RingCentral's after-hours / no-answer divert to the 020 number is configured. *Done when:* dialling the number (directly and via the RingCentral divert) reaches the ElevenLabs agent with the correct CLI, and a Neon `calls` row is created from the post-call webhook.
+**Phase 2 — Telephony.** A Telnyx UK 0330 DID (`+443301900784`) on an FQDN SIP connection to `sip.rtc.elevenlabs.io` (TCP/TLS, inbound `+E.164`, Allowed Source IPs `185.246.41.140`/`.141`); the number is imported into ElevenLabs from the SIP trunk; a minimal ElevenLabs agent answers with one fixed line. RingCentral's after-hours / no-answer divert to the 0330 number is configured. *Done when:* dialling the number (directly and via the RingCentral divert) reaches the ElevenLabs agent with the correct CLI, and a Neon `calls` row is created from the post-call webhook.
 
 **Phase 3 — Agent + webhook service.** Configure the ElevenLabs agent (prompt from §13, British voice, `record_voice: false`, `retention_days: 30`, tools §7, conversation-init) and build the webhook service (`agent/`): conversation-init (caller lookup + dynamic vars), the tool webhooks, and the HMAC-verified post-call receiver. *Done when:* the ten core calls in `docs/TEST-CALLS.md` pass over a real call, the tools work mid-call, and the post-call webhook writes the Neon `calls`/`transcripts` row.
 

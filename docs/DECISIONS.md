@@ -2,14 +2,33 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-10-09 — UK 0330 DID (not 020); Telnyx↔ElevenLabs provisioning scripts (Noel)
+
+- **The provisioned Telnyx DID is `+443301900784`, a UK 0330 non-geographic number** — not the London
+  020 geographic number assumed on 2026-10-07 (that decision is superseded). 0330 is charged at the
+  standard national/geographic rate and is valid for inbound business use; the "London/geographic"
+  framing is dropped across the docs.
+- **Telnyx account is unblocked.** `TELNYX_API_KEY` + `TELNYX_DID` are now in Noel's `.env`, so Phase 2
+  can be wired. The number is already in the Telnyx account; the scripts only connect and route it.
+- **Two idempotent provisioning scripts** (default `--dry-run`, apply with `--apply`; never print keys):
+  - `scripts/provision_telnyx.py` — ensures an FQDN SIP connection `elevenlabs-inbound` (inbound DNIS
+    `+e164`, TCP) with FQDN `sip.rtc.elevenlabs.io:5060`, and assigns the DID to it. Inbound-only: no
+    outbound voice profile, no SIP credentials.
+  - `scripts/provision_elevenlabs.py` — creates the "Cody" agent (voice `jRAAK67SEFE9m7ci5DhD`,
+    `record_voice: false`, `retention_days: 30`, `first_message` + base prompt from `config/`) and
+    imports the DID as a `sip_trunk` number bound to the agent.
+- **Trunk auth is IP allowlist alone.** ElevenLabs `inbound_trunk_config.allowed_addresses` = Telnyx EU
+  signalling IPs `185.246.41.140/32`, `185.246.41.141/32` (verified against `sip.telnyx.com`).
+  ElevenLabs does not require SIP credentials for a Telnyx inbound trunk (digest is outbound-only).
+
 ## 2026-10-07 — ElevenLabs Agents replaces LiveKit + the Python agent (Noel)
 
 - **The voice loop moves to ElevenLabs Agents.** LiveKit (server + SIP + Redis) and the self-hosted
-  Python LiveKit-Agents worker are dropped. Telnyx stays the carrier (London 020) and trunks straight to
-  ElevenLabs over SIP; RingCentral still forwards after-hours / no-answer calls to the 020 number.
+  Python LiveKit-Agents worker are dropped. Telnyx stays the carrier (UK 0330) and trunks straight to
+  ElevenLabs over SIP; RingCentral still forwards after-hours / no-answer calls to the 0330 number.
 - **Telnyx → ElevenLabs trunk:** Telnyx FQDN SIP connection to `sip.rtc.elevenlabs.io`, inbound
   `+E.164`, TCP (5060) or TLS (5061); no digest auth, so Allowed Source IPs EU `185.246.41.140`/`.141`
-  (TCP/TLS only); Allowed Numbers empty; G.711/G.722. The 020 number is imported into ElevenLabs.
+  (TCP/TLS only); Allowed Numbers empty; G.711/G.722. The 0330 number is imported into ElevenLabs.
 - **Caller lookup + tools via webhooks.** No SIP or agent code on our host; one small HTTPS **webhook
   service** (replaces the `agent` container): a **conversation-init** webhook (pre-call: reads
   `system__caller_id`, does the HubSpot lookup, returns `dynamic_variables` + `first_message` greeting +
@@ -37,7 +56,7 @@ Record every architecture decision and every pinned version here. One entry per 
     ElevenLabs processing + storage of transcripts accepted (EU data residency is Enterprise-only).
   - **Discovery call: 15 minutes.** Matches the Cal.com event (7103844); the 30-minute wording in the
     prompt/spec is corrected to 15. See the discovery-call-duration question (now Answered).
-- **Docs/plan only** for now; the Phase 2 build is still blocked on the Telnyx account upgrade.
+- **Telnyx account now provisioned** (2026-10-09); wiring is handled by the provisioning scripts above.
 - **For Noel (remaining action):** create the post-call HMAC secret + the tool-auth secret in `.env`.
 
 ## 2026-10-07 — Notion "Call transcripts" retention: 12 months (Noel)
@@ -49,7 +68,8 @@ Record every architecture decision and every pinned version here. One entry per 
 ## 2026-10-07 — London 020 number; no audio recording; transcript pitch-review doc (Noel)
 
 - **Telnyx DID is a London 020 local (geographic) number**, not an 03 non-geographic. Resolves the
-  "UK number type" open question.
+  "UK number type" open question. *(Superseded 2026-10-09 — the number actually provisioned,
+  `+443301900784`, is a UK 0330 non-geographic number; see the 2026-10-09 entry.)*
 - **No audio recording in the MVP.** `record_session`, LiveKit egress and Telnyx call recording are all
   dropped. The **full two-sided, timestamped transcript** (roles agent/caller) persisted to Neon
   `transcripts` is the record of every call. `calls.recording_path` stays null and is the
