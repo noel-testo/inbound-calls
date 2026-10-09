@@ -2,6 +2,7 @@
 # These are spoken as written, never paraphrased by the model.
 
 business_name: ControlFreq
+assistant_name: Cody           # the AI assistant introduces itself by this name (DECISIONS 2026-10-09)
 expert_name: "TODO"            # the solution expert who takes discovery calls
 expert_title: "TODO"           # e.g. "our solutions director"
 
@@ -12,8 +13,9 @@ business_hours:
   sunday: closed
 
 greeting: >
-  TODO — Thanks for calling ControlFreq. You're speaking to our AI assistant, and this call is recorded.
-  How can I help?
+  Thanks for calling ControlFreq. Calls may be transcribed for quality and training purposes. I'm Cody,
+  an AI assistant trained to answer anything related to ControlFreq. Please tell me what you're looking
+  for and I'll direct your call.
 
 silence_prompt: "Are you still there?"
 

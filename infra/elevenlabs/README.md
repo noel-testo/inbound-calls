@@ -5,8 +5,8 @@ the ElevenLabs dashboard and can be pulled into this folder with `elevenlabs age
 prompt / tools / privacy settings are versioned with the repo.
 
 ## Phone number
-- Import the Telnyx 020 DID: Phone Numbers → Import number → From SIP Trunk (E.164). Trunk details in
-  `infra/telnyx/`.
+- Import the Telnyx 0330 DID (`+443301900784`): Phone Numbers → Import number → From SIP Trunk (E.164),
+  or run `scripts/provision_elevenlabs.py`. Trunk details in `infra/telnyx/`.
 
 ## Agent config
 - **Prompt / first message / keywords** are supplied per call by the conversation-init webhook
