@@ -36,6 +36,7 @@ CONNECTION_NAME = "elevenlabs-inbound"
 ELEVENLABS_FQDN = "sip.rtc.elevenlabs.io"
 ELEVENLABS_PORT = 5060
 TRANSPORT = "TCP"  # TCP signalling (UDP media); TLS (5061) is the alternative
+DEFAULT_DID = "+442045200783"  # London 020 DID (replaces +443301900784); TELNYX_DID overrides
 
 
 def _check(r: httpx.Response) -> None:
@@ -147,10 +148,7 @@ async def main() -> int:
         print("usage: provision_telnyx.py [--dry-run | --apply]", file=sys.stderr)
         return 2
 
-    did = os.environ.get("TELNYX_DID", "").strip()
-    if not did:
-        print("TELNYX_DID is not set", file=sys.stderr)
-        return 1
+    did = os.environ.get("TELNYX_DID", "").strip() or DEFAULT_DID
 
     if not apply:
         _print_plan(did)
