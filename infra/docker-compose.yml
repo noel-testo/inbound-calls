@@ -4,7 +4,9 @@
 
 services:
   agent:
-    build: ../agent                  # the webhook service (FastAPI); Dockerfile added in Phase 3
+    build:
+      context: ..                    # repo root: the image needs pyproject.toml + uv.lock
+      dockerfile: agent/Dockerfile   # the webhook service (FastAPI + uvicorn)
     restart: unless-stopped
     env_file: ../.env
     volumes:

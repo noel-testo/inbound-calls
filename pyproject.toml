@@ -9,11 +9,12 @@ dependencies = [
     "python-dotenv>=1.0",
     "httpx>=0.27",
     "phonenumbers>=8.13",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
 ]
 
-# Agent runtime deps (livekit-agents + provider SDKs) are added in Phase 3,
-# once the provider choices in docs/QUESTIONS.md are settled. Phase 0 only needs
-# the tooling above to run db/migrate.py and scripts/seed_config.py.
+# fastapi + uvicorn run the ElevenLabs webhook service (agent/app.py); the voice loop is hosted by
+# ElevenLabs, so there are no STT/LLM/TTS SDKs here.
 
 [dependency-groups]
 dev = [

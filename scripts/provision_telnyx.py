@@ -36,13 +36,16 @@ CONNECTION_NAME = "elevenlabs-inbound"
 ELEVENLABS_FQDN = "sip.rtc.elevenlabs.io"
 ELEVENLABS_PORT = 5060
 TRANSPORT = "TCP"  # TCP signalling (UDP media); TLS (5061) is the alternative
+DEFAULT_DID = "+442045200783"  # London 020 DID (replaces +443301900784); TELNYX_DID overrides
 
 
 def _check(r: httpx.Response) -> None:
     """Raise on HTTP error, surfacing the API's error body (no secrets in it)."""
     if r.is_error:
-        print(f"  Telnyx API {r.status_code} on {r.request.method} {r.request.url.path}:",
-              file=sys.stderr)
+        print(
+            f"  Telnyx API {r.status_code} on {r.request.method} {r.request.url.path}:",
+            file=sys.stderr,
+        )
         print(f"  {r.text}", file=sys.stderr)
         r.raise_for_status()
 
@@ -83,8 +86,10 @@ def _print_plan(did: str) -> None:
     print(f"\n3. Assign DID {did} to the connection:")
     _show("GET", f"/v2/phone_numbers?filter[phone_number]={did}", None)
     _show("PATCH", "/v2/phone_numbers/<id>", {"connection_id": "<connection_id>"})
-    print("\nInbound-only: no outbound voice profile, no SIP credentials "
-          "(ElevenLabs authenticates by Telnyx signalling IPs).")
+    print(
+        "\nInbound-only: no outbound voice profile, no SIP credentials "
+        "(ElevenLabs authenticates by Telnyx signalling IPs)."
+    )
 
 
 async def _ensure_connection(client: httpx.AsyncClient) -> str:
@@ -121,8 +126,10 @@ async def _assign_number(client: httpx.AsyncClient, did: str, connection_id: str
     _check(r)
     data = r.json().get("data", [])
     if not data:
-        print(f"phone_number {did}: NOT FOUND in this Telnyx account — purchase/port it first",
-              file=sys.stderr)
+        print(
+            f"phone_number {did}: NOT FOUND in this Telnyx account — purchase/port it first",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
     num = data[0]
     if num.get("connection_id") == connection_id:
@@ -141,10 +148,7 @@ async def main() -> int:
         print("usage: provision_telnyx.py [--dry-run | --apply]", file=sys.stderr)
         return 2
 
-    did = os.environ.get("TELNYX_DID", "").strip()
-    if not did:
-        print("TELNYX_DID is not set", file=sys.stderr)
-        return 1
+    did = os.environ.get("TELNYX_DID", "").strip() or DEFAULT_DID
 
     if not apply:
         _print_plan(did)

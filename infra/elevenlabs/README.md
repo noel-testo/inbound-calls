@@ -1,26 +1,39 @@
-# ElevenLabs Agents — Phase 3
+# ElevenLabs Agents
 
-The receptionist voice loop (STT · LLM · TTS · turn-taking) runs here. The agent config is managed in
-the ElevenLabs dashboard and can be pulled into this folder with `elevenlabs agents pull` (JSON), so the
-prompt / tools / privacy settings are versioned with the repo.
+The receptionist voice loop (STT · LLM · TTS · turn-taking) runs here. Agent:
+**`agent_6901m4gzr6bdfjwsmte3fxepq946`** ("ControlFreq receptionist (Cody)"), voice
+`jRAAK67SEFE9m7ci5DhD`, `record_voice: false`, `retention_days: 30`.
 
 ## Phone number
-- Import the Telnyx 0330 DID (`+443301900784`): Phone Numbers → Import number → From SIP Trunk (E.164),
-  or run `scripts/provision_elevenlabs.py`. Trunk details in `infra/telnyx/`.
+- Import the Telnyx London 020 DID **`+442045200783`**: Phone Numbers → Import number → From SIP
+  Trunk (E.164), or run `scripts/provision_elevenlabs.py --apply`. Trunk details in `infra/telnyx/`.
+- The old 0330 number `+443301900784` is still imported and bound to Cody (checked 2026-11-02).
+  Remove it once the 020 number answers; the script reports it but never deletes it.
 
-## Agent config
-- **Prompt / first message / keywords** are supplied per call by the conversation-init webhook
-  (greeting → `first_message`, `config/terms.yaml` → `asr.keywords`, plus the prompt), reading Neon config.
-- **Tools** (webhook tools → our service, `ELEVENLABS_TOOL_SECRET` header): `check_availability`,
-  `book_meeting`, `take_message`. `check_availability` / `book_meeting` are enabled only for high-value
-  new enquiries.
-- **Privacy (Advanced tab):** `platform_settings.privacy.record_voice: false` (no audio) and
-  `retention_days: 30`. The post-call webhook's "Send audio data" is **off** — handle only
-  `post_call_transcription`, never `post_call_audio`.
-- **Post-call webhook:** points at the webhook service (`WEBHOOK_DOMAIN`), HMAC-signed with
-  `ELEVENLABS_WEBHOOK_SECRET`.
+## Agent settings owned by this repo (`scripts/provision_elevenlabs.py`)
+- **Data collection** (`platform_settings.data_collection`): the §6 fields from `agent/extraction.py`.
+  The post-call webhook parses `analysis.data_collection_results`.
+- **Dynamic variables** (placeholders): `caller_known`, `caller_name`, `caller_first_name`,
+  `caller_company`, `caller_relationship`, `caller_phone` — filled by conversation-init.
+- **Overrides** (Security tab): conversation-init data from webhook enabled; `first_message` and
+  ASR keywords overridable.
 
-## Egress IPs (allowlist on the webhook service)
+## Set in the dashboard once `WEBHOOK_DOMAIN` is live
+- **Conversation-initiation webhook** (Agents settings): `https://$WEBHOOK_DOMAIN/elevenlabs/conversation-init`,
+  header `X-Cody-Secret: <ELEVENLABS_TOOL_SECRET>` (store it as an ElevenLabs secret).
+- **Post-call webhook** (workspace webhook, HMAC): `https://$WEBHOOK_DOMAIN/elevenlabs/post-call`,
+  transcript events only, "Send audio data" **off**; its HMAC secret is `ELEVENLABS_WEBHOOK_SECRET`.
+  Enable retries.
+- **Webhook tools** (POST, JSON body, header `X-Cody-Secret`); every tool has a `conversation_id`
+  body parameter assigned from the dynamic variable `system__conversation_id`:
+
+| Tool | URL | Body parameters |
+|---|---|---|
+| `check_availability` | `/tools/check_availability` | `from_iso`, `to_iso` (ISO 8601) |
+| `book_meeting` | `/tools/book_meeting` | `slot_iso`, `name`, `email`, `organisation`, `phone` (optional), `notes` (optional) |
+| `take_message` | `/tools/take_message` | `category` (enquiry/support/supplier/other), `summary`, `callback_number`, `urgency` (normal/high), `site` |
+
+## Egress IPs (optional allowlist at Caddy)
 EU `35.204.38.71`, `34.147.113.54`; US `34.67.146.145`, `34.59.11.47`.
 
 Credentials (`ELEVENLABS_*`) live in `.env`, never in the repo.

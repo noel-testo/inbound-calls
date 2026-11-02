@@ -1,0 +1,74 @@
+"""Notion database schemas: "Cody leads" (one row per call, for review) and "Call transcripts".
+
+`scripts/provision_notion.py` adds any missing property to each database from these definitions; the
+post-call pipeline writes rows with the same property names. Each database keeps its default title
+property, named "Name". "Review" is set to "To review" on create and never overwritten, so Noel's
+triage survives a re-delivered webhook.
+"""
+
+from __future__ import annotations
+
+from agent.extraction import FIELDS, INTENTS
+
+OUTCOMES = (
+    "discovery_booked",
+    "qualified_not_booked",
+    "message_taken",
+    "support_message",
+    "supplier_logged",
+    "no_action",
+    "abandoned",
+    "max_duration",
+    "error",
+)
+REVIEW_OPTIONS = ("To review", "Reviewed", "Not a lead")
+
+
+def _select(values) -> dict:
+    return {"select": {"options": [{"name": v} for v in values]}}
+
+
+def _multi(values) -> dict:
+    return {"multi_select": {"options": [{"name": v} for v in values]}}
+
+
+LEADS: dict[str, dict] = {
+    "Name": {"title": {}},
+    "Conversation ID": {"rich_text": {}},
+    "Call time": {"date": {}},
+    "Phone": {"phone_number": {}},
+    "Email": {"email": {}},
+    "Organisation": {"rich_text": {}},
+    "Role": _select(FIELDS["caller_role"].values),
+    "Intent": _select(INTENTS),
+    "Outcome": _select(OUTCOMES),
+    "Lead score": {"number": {"format": "number"}},
+    "Qualified": {"checkbox": {}},
+    "Known caller": {"checkbox": {}},
+    "Assets": _multi(FIELDS["asset_type"].values),
+    "Estate size": {"number": {"format": "number"}},
+    "Estate unit": _select(FIELDS["estate_size_unit"].values),
+    "Connectivity": _select(FIELDS["current_connectivity"].values),
+    "Driver": _select(FIELDS["driver"].values),
+    "Timeline": _select(FIELDS["timeline"].values),
+    "Decision authority": _select(FIELDS["decision_authority"].values),
+    "Duration (s)": {"number": {"format": "number"}},
+    "Summary": {"rich_text": {}},
+    "Review": _select(REVIEW_OPTIONS),
+    "Apollo contact": {"url": {}},
+    "Apollo account": {"url": {}},
+    "Apollo deal": {"url": {}},
+    "Transcript": {"url": {}},
+}
+
+TRANSCRIPTS: dict[str, dict] = {
+    "Name": {"title": {}},
+    "Conversation ID": {"rich_text": {}},
+    "Call time": {"date": {}},
+    "Caller": {"rich_text": {}},
+    "Company": {"rich_text": {}},
+    "Outcome": _select(OUTCOMES),
+    "Summary": {"rich_text": {}},
+}
+
+SCHEMAS = {"leads": LEADS, "transcripts": TRANSCRIPTS}
