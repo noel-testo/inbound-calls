@@ -1,6 +1,6 @@
 """Thin async Cal.com client (SPEC §7 scheduling).
 
-The discovery-call booking runs on Cal.com, not HubSpot Meetings (decision 2026-10-05).
+The discovery-call booking runs on Cal.com (decision 2026-10-05).
 Two endpoints, each pinned to the cal-api-version that serves it:
 
   GET  /v2/slots      availability   cal-api-version 2024-09-04
