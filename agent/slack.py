@@ -1,6 +1,6 @@
 """Cody's own Slack alert for qualified calls, via an incoming webhook.
 
-Replaces the HubSpot workflow alert that HubSpot used to post.
+Replaces the Slack post the HubSpot workflow used to make.
 """
 
 from __future__ import annotations

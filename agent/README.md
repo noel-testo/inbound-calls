@@ -1,24 +1,25 @@
-# Agent — webhook service (Phase 3)
+# Agent — webhook service
 
 The voice loop runs in **ElevenLabs Agents**; this `agent/` package is the small **HTTPS webhook
-service** that ElevenLabs calls (SPEC §4.1, §7, §8). Built in Phase 3.
+service** that ElevenLabs calls (SPEC §4.1, §7, §8, §11).
+
+| Endpoint | Auth | Does |
+|---|---|---|
+| `POST /elevenlabs/conversation-init` | `X-Cody-Secret` | Caller lookup in Neon `callers` by E.164 within `INIT_LOOKUP_TIMEOUT_MS`; returns dynamic variables, the greeting (`first_message`) and STT keywords. Fails soft. |
+| `POST /tools/check_availability` | `X-Cody-Secret` | Cal.com slots. |
+| `POST /tools/book_meeting` | `X-Cody-Secret` | Cal.com booking; caller's CLI as the attendee phone. |
+| `POST /tools/take_message` | `X-Cody-Secret` | Neon `messages`. |
+| `POST /elevenlabs/post-call` | HMAC `ElevenLabs-Signature` | Verifies on the raw body, stores the payload, answers 200, then runs `post_call.py`. |
+| `GET /healthz` | — | Liveness. |
 
 Layout:
-- `app.py` — FastAPI app: conversation-init, tool webhooks, post-call receiver.
-- `config.py` — renders `first_message` (greeting), `asr.keywords` (terms) and the prompt from Neon config.
-- `tools/` — one handler per webhook tool: `check_availability`, `book_meeting`, `take_message`.
-- `hubspot/` — thin HubSpot CRM client (contacts, companies, deals, calls). *(exists from Phase 1)*
-- `calcom/` — Cal.com v2 client (availability + booking). *(exists from Phase 1)*
-- `store/` — Neon access (asyncpg), event logging.
+- `app.py` — FastAPI app and wiring.
+- `conversation_init.py` — call-start lookup (Neon only; never Apollo).
+- `tools/` — the three webhook tools.
+- `post_call.py` — Neon ingest ▸ score ▸ Notion transcript ▸ Notion lead ▸ Apollo (qualified) ▸ Slack (qualified). Idempotent; replay with `scripts/replay_post_call.py`.
+- `extraction.py` / `scoring.py` — the §6 schema (also provisions ElevenLabs data collection) and scoring.
+- `apollo/`, `notion/`, `calcom/`, `slack.py` — thin HTTP clients. The Apollo client has no sequence methods.
+- `store/` — Neon access (asyncpg).
 
-Endpoints:
-- **conversation-init** — ElevenLabs calls this before the greeting with `caller_id`; returns
-  `dynamic_variables` + `first_message` + `asr.keywords`. Does the HubSpot caller lookup (fail soft).
-- **tool webhooks** — `check_availability` / `book_meeting` (Cal.com), `take_message` (Neon); auth via
-  the `ELEVENLABS_TOOL_SECRET` header.
-- **post-call** — receives `post_call_transcription` (HMAC `ElevenLabs-Signature`, verified with the raw
-  body against `ELEVENLABS_WEBHOOK_SECRET`), returns 200, triggers Windmill `post_call`. Idempotent on
-  `conversation_id`.
-
-Caddy fronts it (TLS) at `WEBHOOK_DOMAIN`, reverse-proxying to port 8080; lock it to ElevenLabs' egress
-IPs (SPEC §12). The LiveKit Agents worker, `providers/` and `prompt.py` from the earlier plan are gone.
+Run locally: `uv run uvicorn agent.app:create_app --factory --port 8080`. In compose, Caddy fronts it
+at `WEBHOOK_DOMAIN` and reverse-proxies to port 8080.

@@ -11,6 +11,7 @@ agent's own first message, so a slow database never delays the greeting.
 from __future__ import annotations
 
 import asyncio
+import time
 
 from agent import log
 from agent.phone import to_e164
@@ -54,6 +55,7 @@ async def handle(store, settings, body: dict) -> dict:
     variables = dict(DYNAMIC_VARIABLES, caller_phone=caller or "")
     response: dict = {"type": "conversation_initiation_client_data", "dynamic_variables": variables}
 
+    start = time.monotonic()
     try:
         async with asyncio.timeout(settings.init_lookup_timeout_s):
             caller_row, greeting, terms = await _lookup(store, conversation_id, caller, called)
@@ -86,6 +88,10 @@ async def handle(store, settings, body: dict) -> dict:
         response["conversation_config_override"] = override
 
     log.event(
-        "init_lookup", call_id=conversation_id, known=bool(caller_row), cli_present=bool(caller)
+        "init_lookup",
+        call_id=conversation_id,
+        known=bool(caller_row),
+        cli_present=bool(caller),
+        ms=int((time.monotonic() - start) * 1000),
     )
     return response

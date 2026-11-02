@@ -2,6 +2,58 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-02 — HubSpot removed; Neon caller directory + Notion review + Apollo for qualified callers (Noel)
+
+Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked on PR #9):
+
+- **HubSpot is removed entirely**: `agent/hubspot/`, `scripts/provision_hubspot.py`, their tests, the
+  `HUBSPOT_*` env vars, the `hubspot_*` Neon columns and the HubSpot workflow alert. The `cf_`
+  properties provisioned in HubSpot on 2026-10-05 are left in HubSpot, unused.
+- **Caller lookup at call start reads Cody's own Neon caller directory** (`callers`, keyed by
+  E.164) from the ElevenLabs conversation-initiation webhook, within `INIT_LOOKUP_TIMEOUT_MS`
+  (default 1500 ms, all Neon work in one budget). ElevenLabs fetches this while the call is still
+  connecting; on timeout or error the call starts as an unknown caller with the agent's own first
+  message. **No Apollo call during a call** (Apollo cannot search by phone). Apollo ids are kept in
+  `callers` so a returning qualified caller reuses the same Apollo contact/account.
+- **Every call → a Notion "Cody leads" row** for review (schema in SPEC §11 and
+  `agent/notion/schema.py`), alongside the "Call transcripts" row. `Review` starts at "To review"
+  and is never overwritten. Notion API version pinned to `2022-06-28` (database-id parents);
+  `scripts/provision_notion.py` adds missing properties.
+- **Qualified callers only, post-call, Apollo REST** (SPEC §9): find-or-create account, create or
+  update the contact (linked via `account_id`), log the call with `call_identifier` = the ElevenLabs
+  conversation id and the summary in its note, create a deal on the account and a follow-up task.
+  **Never a sequence** — the client has no sequence methods and a test asserts none is called.
+  Ids are written back to Neon. **Deal creation is behind `APOLLO_CREATE_DEALS`, default off**,
+  because Apollo's automatic HubSpot sync would push the deal into HubSpot; it must be switched off
+  in Apollo first.
+- **Slack alert**: Cody posts its own qualified-call alert to `SLACK_WEBHOOK_URL` (incoming webhook),
+  replacing the HubSpot workflow's Slack post.
+- **Idempotency**: the verified post-call payload is stored on the `calls` row before anything else;
+  every external id is written to Neon as soon as it exists and the step is skipped next time;
+  Apollo call records upsert on `call_identifier`; Notion rows are found by Conversation ID; a claim
+  column (`post_call_lock_until`) stops concurrent deliveries racing; `processed_at` is set only
+  when every step succeeded, and `scripts/replay_post_call.py` finishes the rest.
+- **Post-call runs in the webhook service, not Windmill.** It acknowledges ElevenLabs first, then
+  runs the pipeline in-process. This follows the plan ("post-call webhook writes …") and removes
+  Windmill from the call's critical path; whether Windmill is kept for the n8n port and retention is
+  a question for Noel (QUESTIONS). *This departs from SPEC v1.0 principle 2 / CLAUDE.md rule 3
+  ("async lives in Windmill"); both are updated.*
+- **Extraction is ElevenLabs data collection**, not a separate LLM call — no new model provider or
+  key. The §6 field list in `agent/extraction.py` provisions the agent and parses the result.
+- **Telnyx DID is now `+442045200783`** (London 020), replacing `+443301900784`. Docs, `.env.example`
+  and both provisioning scripts' defaults updated; provisioning not run. The old number is still
+  imported in ElevenLabs and bound to Cody (checked 2026-11-02) — remove it once 020 answers.
+- **Migrations as files**: `db/schema.sql` became `db/migrations/0001_baseline.sql` (frozen);
+  `0002_callers_apollo_notion.sql` adds `callers`, renames `calls.livekit_room` →
+  `conversation_id`, adds the Apollo/Notion/replay columns and drops the HubSpot ones.
+  `db/migrate.py` applies files in order and records them in `schema_migrations`. Not run against
+  production; CI's Neon preview branch applies them per PR.
+- **New dependencies**: `fastapi` + `uvicorn` for the webhook service (named in SPEC v1.0 §4.2 since
+  Phase 0). No ElevenLabs, Apollo or Notion SDK: thin `httpx` clients, matching the Cal.com client.
+  The HMAC check is implemented directly (`t=…,v0=…` over `"<t>.<body>"`, 30-minute tolerance).
+- **Unchanged**: ElevenLabs voice `jRAAK67SEFE9m7ci5DhD`, privacy settings, the greeting wording,
+  the discovery-call expert name/title (still TODO) and the Cal.com client.
+
 ## 2026-10-09 — UK 0330 DID (not 020); Telnyx↔ElevenLabs provisioning scripts (Noel)
 
 - **The provisioned Telnyx DID is `+443301900784`, a UK 0330 non-geographic number** — not the London
@@ -243,15 +295,14 @@ Record every architecture decision and every pinned version here. One entry per 
 Recorded 2026-10-03. Image tags verified against the registries on this date.
 
 ### Container images (`infra/docker-compose.yml`)
-- `redis:7.4-alpine`
-- `livekit/livekit-server:v1.13.7`
-- `livekit/sip:v1.17.0`
-- `ghcr.io/windmill-labs/windmill:v1.822.0` (server and worker, same tag)
+- `ghcr.io/windmill-labs/windmill:v1.822.0` (server and worker, same tag) — under review (2026-11-02)
 - `caddy:2.8-alpine`
-- `agent` base image — Phase 2/3 (Dockerfile not yet written)
-- (FreeSWITCH removed 2026-10-05; Telnyx is an external SIP trunk, no image to pin)
+- `agent` (`agent/Dockerfile`, 2026-11-02): `python:3.12.13-slim-bookworm`, with `uv` copied from
+  `ghcr.io/astral-sh/uv:0.13.6` (both tags verified against the registries on 2026-11-02)
+- (Removed: `redis`, `livekit/livekit-server`, `livekit/sip` on 2026-10-07; FreeSWITCH on 2026-10-05)
 
 ### Python (`.python-version`, `pyproject.toml`, `uv.lock`)
 - CPython 3.12 (resolved 3.12.13)
-- Runtime: `asyncpg==0.31.0`, `pyyaml==6.0.3`, `python-dotenv==1.2.4`
+- Runtime: `asyncpg==0.31.0`, `pyyaml==6.0.3`, `python-dotenv==1.2.4`, `httpx==0.28.1`,
+  `phonenumbers==9.0.40`, `fastapi==0.162.0` (`starlette==1.10.0`), `uvicorn==0.54.0`
 - Dev: `ruff==0.16.10`, `pytest==9.1.1`, `pytest-asyncio==1.4.0`

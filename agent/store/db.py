@@ -46,7 +46,10 @@ class Store:
 
     @classmethod
     async def connect(cls, dsn: str, **kw) -> Store:
-        pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5, init=_init_conn, **kw)
+        # Neon suspends an idle compute after 5 minutes and drops its connections; closing ours
+        # after 60 s idle means a call-start lookup opens a fresh one instead of hitting a dead one.
+        kw.setdefault("max_inactive_connection_lifetime", 60.0)
+        pool = await asyncpg.create_pool(dsn, min_size=0, max_size=5, init=_init_conn, **kw)
         return cls(pool)
 
     async def close(self) -> None:
