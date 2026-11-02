@@ -1,5 +1,5 @@
--- Inbound Calls — Neon database `receptionist`
--- Applied idempotently by db/migrate.py. Keep every statement re-runnable.
+-- Inbound Calls — Neon database `receptionist`: 0001 baseline (Phase 0, applied to production 2026-10-04).
+-- Frozen: never edit an applied migration; add the next numbered file instead. Every statement re-runnable.
 
 create extension if not exists pgcrypto;
 

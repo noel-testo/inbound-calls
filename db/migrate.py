@@ -1,8 +1,10 @@
 #!/usr/bin/env python
-"""Apply db/schema.sql to the Neon `receptionist` database, idempotently.
+"""Apply db/migrations/*.sql to the Neon `receptionist` database, in filename order.
 
-Reads DATABASE_URL from the environment (or the repo-root .env). Safe to rerun:
-schema.sql uses `if not exists` / duplicate-object guards throughout.
+Reads DATABASE_URL from the environment (or the repo-root .env). Each file runs once, in its own
+transaction, and is recorded in `schema_migrations`; every file is also written to be re-runnable,
+so a database that predates the tracking table (production's 0001 baseline) is caught up safely.
+Use the unpooled connection string: DDL over asyncpg misbehaves through the PgBouncer pooler.
 
     uv run python db/migrate.py
 """
@@ -17,7 +19,32 @@ from pathlib import Path
 import asyncpg
 from dotenv import load_dotenv
 
-SCHEMA = Path(__file__).parent / "schema.sql"
+MIGRATIONS = Path(__file__).parent / "migrations"
+
+
+def migration_files() -> list[Path]:
+    return sorted(MIGRATIONS.glob("[0-9][0-9][0-9][0-9]_*.sql"))
+
+
+async def apply(conn: asyncpg.Connection) -> list[str]:
+    await conn.execute(
+        """
+        create table if not exists schema_migrations (
+          name       text primary key,
+          applied_at timestamptz not null default now()
+        )
+        """
+    )
+    done = {r["name"] for r in await conn.fetch("select name from schema_migrations")}
+    applied: list[str] = []
+    for path in migration_files():
+        if path.name in done:
+            continue
+        async with conn.transaction():
+            await conn.execute(path.read_text())
+            await conn.execute("insert into schema_migrations (name) values ($1)", path.name)
+        applied.append(path.name)
+    return applied
 
 
 async def main() -> int:
@@ -27,14 +54,13 @@ async def main() -> int:
         print("DATABASE_URL is not set", file=sys.stderr)
         return 1
 
-    sql = SCHEMA.read_text()
     conn = await asyncpg.connect(dsn)
     try:
-        await conn.execute(sql)
+        applied = await apply(conn)
     finally:
         await conn.close()
 
-    print(f"Applied {SCHEMA.name} to receptionist")
+    print(f"Applied: {', '.join(applied)}" if applied else "Up to date")
     return 0
 
 
