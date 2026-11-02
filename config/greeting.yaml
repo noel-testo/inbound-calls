@@ -3,8 +3,8 @@
 
 business_name: ControlFreq
 assistant_name: Cody           # the AI assistant introduces itself by this name (DECISIONS 2026-10-09)
-expert_name: "TODO"            # the solution expert who takes discovery calls
-expert_title: "TODO"           # e.g. "our solutions director"
+expert_name: "Noel Sesto"       # takes the discovery calls
+expert_title: "our Technical Director"
 
 business_hours:
   timezone: Europe/London
@@ -29,8 +29,8 @@ emergency_instruction: "TODO"
 
 # One-line deflections (§5.1). Spoken as written.
 deflections:
-  pricing: "I can't give pricing on this call, but {expert_name} can on the discovery call."
+  pricing: "I can't give pricing on this call, but Noel Sesto, our Technical Director, can on the discovery call."
   sla_or_promise: "I can't commit to timescales, but I'll make sure the team has the details."
-  are_you_human: "I'm ControlFreq's AI assistant. I can take details and book a call with the team."
+  are_you_human: "I'm ControlFreq's AI assistant. I can take details and book a call with Noel Sesto, our Technical Director."
   engineering_advice: "I'm not able to advise on that, but I'll log it for an engineer."
   card_details: "I can't take payment details. The team will contact you about that."

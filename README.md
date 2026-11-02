@@ -1,6 +1,6 @@
 # Inbound Calls
 
-ControlFreq's AI receptionist, **Cody**. Answers after-hours and unanswered calls on the main RingCentral number, recognises returning callers by CLI, qualifies new enquiries, books high-value leads into a discovery call on Cal.com, and logs every call.
+ControlFreq's AI receptionist, **Cody**. Answers after-hours and unanswered calls on the main RingCentral number, recognises returning callers by CLI, qualifies new enquiries, books high-value leads into a 15-minute discovery call with Noel Sesto, Technical Director, on Cal.com, and logs every call.
 
 - `CLAUDE.md` — how Claude Code works in this repo
 - `docs/SPEC.md` — the build spec (source of truth)
@@ -13,7 +13,7 @@ ControlFreq's AI receptionist, **Cody**. Answers after-hours and unanswered call
 - `agent/` — the HTTPS webhook service ElevenLabs calls
 - `infra/docker-compose.yml` — the host stack
 
-Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + London 020 DID `+442045200783`) → **ElevenLabs Agents** (the voice loop) → a small HTTPS webhook service we host. At call start the service looks the caller up in Neon; mid-call it checks and books Cal.com slots and takes messages; after the call it writes Neon, a Notion lead row and transcript for every call, and — for qualified callers only — an Apollo contact, account, call record and follow-up task plus a Slack alert. No HubSpot, no audio recording.
+Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + London 020 DID `+442045200783`) → **ElevenLabs Agents** (the voice loop) → a small HTTPS webhook service we host. At call start the service looks the caller up in Neon; mid-call it checks Noel Sesto's Cal.com availability, books the discovery call and takes messages; after the call it writes Neon, a Notion lead row and transcript for every call, and — for qualified callers only — an Apollo contact, account, call record and follow-up task plus a Slack alert. No HubSpot, no audio recording.
 
 ```bash
 uv sync

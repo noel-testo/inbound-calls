@@ -116,7 +116,7 @@ async def test_book_meeting_builds_payload_and_reads_back():
     }
     assert body["bookingFieldsResponses"] == {
         "Company": "Acme Lifts",
-        "title": "Intro call – Acme Lifts",
+        "title": "Discovery call with Noel Sesto, Technical Director – Acme Lifts",
         "notes": "2 lifts, PSTN switch-off",
     }
     assert rec.requests[-1].headers["cal-api-version"] == "2024-08-13"
@@ -132,7 +132,9 @@ async def test_book_meeting_omits_optional_fields():
     body = rec.body(-1)
     assert "phoneNumber" not in body["attendee"]
     assert "notes" not in body["bookingFieldsResponses"]
-    assert body["bookingFieldsResponses"]["title"] == "Intro call – Acme"
+    assert body["bookingFieldsResponses"]["title"] == (
+        "Discovery call with Noel Sesto, Technical Director – Acme"
+    )
     await client.aclose()
 
 

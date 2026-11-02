@@ -39,6 +39,23 @@ def test_elevenlabs_patch_carries_data_collection_and_placeholders():
     assert "first_message" not in agent
 
 
+def test_discovery_host_is_named_and_privacy_line_unchanged():
+    root = Path(__file__).parents[1]
+    greeting = (root / "config" / "greeting.yaml").read_text()
+    prompt = (root / "config" / "prompt.md").read_text()
+    terms = (root / "config" / "terms.yaml").read_text()
+    assert 'expert_name: "Noel Sesto"' in greeting
+    assert 'expert_title: "our Technical Director"' in greeting
+    assert "Noel Sesto, our Technical Director" in greeting
+    assert "{expert_name}" not in greeting
+    assert "15-minute discovery call with Noel Sesto, our Technical Director" in prompt
+    assert "expert_name" not in prompt and "expert_title" not in prompt
+    assert "Noel Sesto" in terms and "TODO expert name" not in terms
+    first = load("provision_elevenlabs")._first_message()
+    assert "Calls may be transcribed for quality and training purposes." in first
+    assert "recorded" not in first.lower()
+
+
 def test_new_agent_body_keeps_voice_privacy_and_greeting():
     el = load("provision_elevenlabs")
     body = el._agent_body()

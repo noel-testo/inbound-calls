@@ -26,6 +26,8 @@ from .errors import CalComError
 SLOTS_VERSION = "2024-09-04"
 BOOKINGS_VERSION = "2024-08-13"
 USER_AGENT = "ControlFreqReceptionist/1.0"
+# Hidden required booking field. The calendar invite and confirmation use this title.
+DISCOVERY_TITLE = "Discovery call with Noel Sesto, Technical Director – {organisation}"
 
 
 def _parse(iso: str) -> datetime:
@@ -151,9 +153,10 @@ class CalComClient:
         invite and confirmation email. Returns the start time for read-back.
 
         `organisation` is required (the `Company` booking field is required); `title`
-        (required, hidden) defaults to "Intro call – <organisation>"; `notes` carries
-        the qualification summary. `phone` is required for event 7103844
-        (`attendeePhoneNumber` is a required, validated field) — pass the caller's CLI.
+        (required, hidden) defaults to "Discovery call with Noel Sesto, Technical
+        Director – <organisation>"; `notes` carries the qualification summary.
+        `phone` is required for event 7103844 (`attendeePhoneNumber` is a required,
+        validated field) — pass the caller's CLI.
         """
         start_utc = _to_utc_z(start_iso)
         attendee = {"name": name, "email": email, "timeZone": timezone_name, "language": "en"}
@@ -161,7 +164,7 @@ class CalComClient:
             attendee["phoneNumber"] = phone
         responses = {
             "Company": organisation,
-            "title": title or f"Intro call – {organisation}",
+            "title": title or DISCOVERY_TITLE.format(organisation=organisation),
         }
         if notes:
             responses["notes"] = notes

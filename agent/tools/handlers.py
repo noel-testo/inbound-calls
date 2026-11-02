@@ -22,6 +22,7 @@ def _ms(start: float) -> int:
 
 
 async def check_availability(store, calcom, body: dict) -> dict:
+    """Slots on Noel Sesto's discovery-call calendar (Cal.com event 7103844)."""
     conversation_id = body.get("conversation_id")
     call = await store.ensure_call(conversation_id) if conversation_id else None
     start = time.monotonic()
@@ -46,6 +47,7 @@ async def check_availability(store, calcom, body: dict) -> dict:
 
 
 async def book_meeting(store, calcom, body: dict) -> dict:
+    """Book a 15-minute discovery call with Noel Sesto, Technical Director."""
     conversation_id = body.get("conversation_id")
     call = await store.ensure_call(conversation_id) if conversation_id else None
     phone = to_e164(body.get("phone")) or (call or {}).get("caller_e164")

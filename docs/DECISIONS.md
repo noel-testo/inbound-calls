@@ -2,6 +2,18 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-02 — Discovery calls are with Noel Sesto, Technical Director (Noel)
+
+- Cody books a **15-minute discovery call with Noel Sesto, our Technical Director**. The name and title
+  replace the `TODO` placeholders in `config/greeting.yaml` (`expert_name`, `expert_title`) and the
+  unnamed "expert" in the system prompt, tool descriptions and spec.
+- Spoken offer and the pricing deflection both name him. The read-back says the call is with Noel Sesto.
+  The greeting's privacy line is unchanged: calls are transcribed, not recorded.
+- The Cal.com booking title (hidden required field) is
+  "Discovery call with Noel Sesto, Technical Director – <organisation>". It used to be
+  "Intro call – <organisation>". `notes` is still the qualification summary.
+- `Noel Sesto` is an STT term. The expert name/title question in QUESTIONS is answered.
+
 ## 2026-11-02 — HubSpot removed; Neon caller directory + Notion review + Apollo for qualified callers (Noel)
 
 Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked on PR #9):
@@ -52,7 +64,8 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
   Phase 0). No ElevenLabs, Apollo or Notion SDK: thin `httpx` clients, matching the Cal.com client.
   The HMAC check is implemented directly (`t=…,v0=…` over `"<t>.<body>"`, 30-minute tolerance).
 - **Unchanged**: ElevenLabs voice `jRAAK67SEFE9m7ci5DhD`, privacy settings, the greeting wording,
-  the discovery-call expert name/title (still TODO) and the Cal.com client.
+  the discovery-call expert name/title (still TODO at this point; named later the same day — see above)
+  and the Cal.com client.
 
 ## 2026-10-09 — UK 0330 DID (not 020); Telnyx↔ElevenLabs provisioning scripts (Noel)
 
@@ -192,7 +205,8 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
 - **Event type 7103844** ("LiftPulse Trial", 15-min, auto-confirmed). Booking-field slugs confirmed
   live via `GET /v2/event-types/7103844`: attendee name/email/phone are system fields (→ `attendee`
   object); custom `bookingFieldsResponses` keys are `Company` (required), `title` (required, hidden;
-  defaults to "Intro call – <organisation>"), `notes` (optional; qualification summary).
+  then defaulted to "Intro call – <organisation>", now "Discovery call with Noel Sesto, Technical
+  Director – <organisation>" — see 2026-11-02), `notes` (optional; qualification summary).
 - **Config:** `CALCOM_API_KEY` (account noelsesto) + `CALCOM_EVENT_TYPE_ID=7103844` in `.env`. HubSpot
   Service Keys still to come from Noel.
 - **Slots response shape:** `{"data": {"YYYY-MM-DD": [{"start": ISO+offset}, …]}}`; the client filters
@@ -238,7 +252,7 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
   `upsert_contact` matches by email then phone; phone lookups try E.164 + UK national (SPEC §9/§11).
 - **Tests** use `httpx.MockTransport` (no new test dependency) and assert the exact request payloads;
   `pytest` gets `pythonpath = ["."]` so `agent` imports without packaging. 11 tests pass; ruff clean.
-- **To validate in the live phase** (blocked on the expert's meeting-link slug + Service Keys):
+- **To validate in the live phase** (blocked on Noel Sesto's meeting-link slug + Service Keys):
   the scheduler availability JSON shape (`linkAvailability.linkAvailabilityByDuration[*].availabilities[*]`,
   parsed defensively) and the booking `formFields` names, which depend on the link's form config.
 

@@ -6,7 +6,7 @@ questions are raised in the session immediately and recorded here afterwards.
 ## Open
 
 - **Business hours** for `config/greeting.yaml` and for "after hours". *Default:* Mon–Fri 09:00–17:30.
-- **Greeting, closing, emergency instruction** wording, including "recorded" vs "transcribed" in the greeting, and the discovery-call expert's name and title. *Default:* unchanged; TODO placeholders stay until approved; blocking for Phase 5.
+- **Greeting, closing, emergency instruction** wording, including "recorded" vs "transcribed" in the greeting. *Default:* unchanged; TODO placeholders stay until approved; blocking for Phase 5. The discovery-call host is settled — see Answered.
 - **Extraction:** the §6 fields now come from ElevenLabs post-call data collection rather than a separate LLM call. *Default:* yes (no extra model provider or key).
 - **LLM:** ElevenLabs hosts the agent's LLM in the MVP; a custom LLM via ElevenLabs' custom-LLM setting (`LLM_BASE_URL`) is a post-MVP option (§15). *Default:* ElevenLabs' model, tuned for the latency budget.
 - **Scoring:** confirm or change weights and the threshold (50) in `config/scoring.yaml`. *Default:* as shipped.
@@ -31,7 +31,7 @@ questions are raised in the session immediately and recorded here afterwards.
 - **CRM:** HubSpot removed; Neon caller directory for the call-start lookup, Notion lead-review rows for every call, Apollo (post-call, qualified callers only, never sequences) and Cody's own Slack alert. Deal creation behind `APOLLO_CREATE_DEALS` (default off). (2026-11-02)
 - **Telnyx DID:** London 020 `+442045200783`, replacing `+443301900784`. (2026-11-02)
 
-- **Expert / discovery-call owner:** Noel Sesto, HubSpot owner id 99735767. (2026-10-04) *(The HubSpot owner id is moot since 2026-11-02; Noel is still the expert.)*
+- **Expert name and title:** Noel Sesto, Technical Director. Cody offers a 15-minute discovery call with Noel Sesto, our Technical Director. (Title set 2026-11-02. First named as the owner on 2026-10-04, HubSpot owner id 99735767 — that id is moot since HubSpot was removed.)
 - **Deal pipeline:** use the existing "Sales Pipeline" (id `default`) — no new `Inbound` pipeline (Starter plan allows two). Receptionist outcomes map to existing stages: Qualified – not booked → "Lead Identified" (6139983093); Discovery booked → "Initial Contact" (6139983094). (2026-10-04) *(Superseded 2026-11-02: HubSpot removed.)*
 - **HubSpot auth:** Service Keys, not a legacy private app — `HUBSPOT_SERVICE_KEY` (runtime) + `HUBSPOT_PROVISION_KEY` (provisioning). (2026-10-04) *(Superseded 2026-11-02: HubSpot removed.)*
 - **HubSpot Service Keys provided + verified** (2026-10-05): `HUBSPOT_SERVICE_KEY` has CRM read/write/delete; `HUBSPOT_PROVISION_KEY` has schema access. Both in `.env`; provisioning + CRM live-tested. *(Superseded 2026-11-02: HubSpot removed.)*
