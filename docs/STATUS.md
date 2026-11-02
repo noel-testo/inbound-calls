@@ -29,7 +29,7 @@
 - **DoD met.** Deferred to Phase 3: wiring both clients into the agent tools.
 
 ## Phase 2 — Telephony (Telnyx → ElevenLabs Agents) — scope (revised 2026-10-08)
-- **Ingress:** RingCentral diverts after-hours / no-answer calls to a **London 020** Telnyx DID; Telnyx trunks over SIP to **ElevenLabs Agents** (`sip.rtc.elevenlabs.io`), which runs the whole voice loop. CLI preserved for the HubSpot lookup. **LiveKit, the Python agent, FreeSWITCH and RingCentral SIP registration are all dropped.**
+- **Ingress:** RingCentral diverts after-hours / no-answer calls to a **UK 0330** Telnyx DID (`+443301900784`); Telnyx trunks over SIP to **ElevenLabs Agents** (`sip.rtc.elevenlabs.io`), which runs the whole voice loop. CLI preserved for the HubSpot lookup. **LiveKit, the Python agent, FreeSWITCH and RingCentral SIP registration are all dropped.**
 - **No audio recording:** ElevenLabs `record_voice: false`, post-call audio off; full two-sided, timestamped transcripts in Neon are the record of each call (SPEC §8).
 - **To build:** the Telnyx FQDN trunk + number import into ElevenLabs; the ElevenLabs agent (prompt, voice, privacy, tools, conversation-init); the HTTPS webhook service (`agent/`); the RingCentral divert configured.
 - **DoD:** dialling the number (directly and via the RingCentral divert) reaches the ElevenLabs agent with the correct CLI, and a Neon `calls` row is created from the post-call webhook.
