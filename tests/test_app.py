@@ -136,6 +136,25 @@ def test_post_call_accepts_signed_payload_and_runs_pipeline():
     assert len(apollo.contacts) == 1 and len(slack.posts) == 1 and len(notion.pages) == 2
 
 
+def test_post_call_rejects_signed_but_malformed_bodies_with_400():
+    client, store, *_ = make_client()
+    bodies = [
+        b"{not json",
+        b"\xff\xfe",
+        b"[]",
+        b'"post_call_transcription"',
+        json.dumps({"type": "post_call_transcription", "data": "conv_1"}).encode(),
+        json.dumps({"type": "post_call_transcription", "data": {}}).encode(),
+        json.dumps({"type": "post_call_transcription", "data": {"conversation_id": 7}}).encode(),
+    ]
+    with client:
+        for raw in bodies:
+            h = {"ElevenLabs-Signature": sign(raw, "hmac-secret", int(time.time()))}
+            r = client.post("/elevenlabs/post-call", content=raw, headers=h)
+            assert r.status_code == 400, raw
+    assert store.calls == {}
+
+
 def test_post_call_ignores_other_event_types():
     client, store, *_ = make_client()
     raw, h = signed({"type": "post_call_audio", "data": {"conversation_id": "c"}})

@@ -126,12 +126,22 @@ def create_app(
         except SignatureError as e:
             log.event("post_call_rejected", reason=str(e))
             return JSONResponse({"error": "invalid signature"}, status_code=401)
-        payload = json.loads(raw)
+        # Signed but malformed is a 400, not a 500: ElevenLabs retries 5xx, and
+        # resending the same bad body will never succeed.
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            log.event("post_call_rejected", reason="invalid JSON")
+            return JSONResponse({"error": "invalid JSON"}, status_code=400)
+        if not isinstance(payload, dict):
+            log.event("post_call_rejected", reason="not a JSON object")
+            return JSONResponse({"error": "expected a JSON object"}, status_code=400)
         if payload.get("type") != "post_call_transcription":
             log.event("post_call_ignored", type=payload.get("type"))
             return {"received": True, "ignored": payload.get("type")}
-        conversation_id = (payload.get("data") or {}).get("conversation_id")
-        if not conversation_id:
+        data = payload.get("data")
+        conversation_id = data.get("conversation_id") if isinstance(data, dict) else None
+        if not conversation_id or not isinstance(conversation_id, str):
             return JSONResponse({"error": "missing conversation_id"}, status_code=400)
         call = await app.state.store.record_post_call(conversation_id, payload)
         log.event(
