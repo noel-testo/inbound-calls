@@ -22,7 +22,7 @@ def _ms(start: float) -> int:
 
 
 async def check_availability(store, calcom, body: dict) -> dict:
-    """Slots on Noel Sesto's discovery-call calendar (Cal.com event 7103844)."""
+    """Slots on Noel Sesto's discovery-call calendar (Cal.com event 7747197)."""
     conversation_id = body.get("conversation_id")
     call = await store.ensure_call(conversation_id) if conversation_id else None
     start = time.monotonic()

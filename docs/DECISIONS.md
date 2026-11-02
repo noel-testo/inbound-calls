@@ -2,13 +2,28 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-02 — Cody books Cal.com event 7747197, not LiftPulse Trial (Noel)
+
+- Cody's discovery calls use event type **7747197**, slug `control-freq-discovery`, title
+  "Control Freq discovery call", 15 minutes, Google Meet:
+  https://cal.com/noelsesto/control-freq-discovery
+- Event **7103844** ("LiftPulse Trial") stays for LiftPulse. Cody must not use it. The live id is
+  `CALCOM_EVENT_TYPE_ID` (no separate slug variable). `.env.example` is `7747197`; Noel's `.env`
+  must change from `7103844` to `7747197`.
+- Booking questions on the public event match the client: `Company` (required text), name, email,
+  `attendeePhoneNumber` (required), hidden required `title`, and `notes` (optional, labelled
+  "Enquiry details"). Slugs unchanged. The booking title stays
+  "Discovery call with Noel Sesto, Technical Director – <organisation>".
+
 ## 2026-11-02 — Discovery calls are with Noel Sesto, Technical Director (Noel)
 
 - Cody books a **15-minute discovery call with Noel Sesto, our Technical Director**. The name and title
   replace the `TODO` placeholders in `config/greeting.yaml` (`expert_name`, `expert_title`) and the
   unnamed "expert" in the system prompt, tool descriptions and spec.
 - Spoken offer and the pricing deflection both name him. The read-back says the call is with Noel Sesto.
-  The greeting's privacy line is unchanged: calls are transcribed, not recorded.
+  Those sentences live once, in `config/greeting.yaml` (`{expert_name}`, `{expert_title}`, and the
+  deflections). `config/prompt.md` keeps the placeholders; `agent/prompt.py` fills them when the
+  agent prompt is built. The greeting's privacy line is unchanged: calls are transcribed, not recorded.
 - The Cal.com booking title (hidden required field) is
   "Discovery call with Noel Sesto, Technical Director – <organisation>". It used to be
   "Intro call – <organisation>". `notes` is still the qualification summary.
@@ -119,7 +134,7 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
   - **Voice: `jRAAK67SEFE9m7ci5DhD`** (British English) — pinned as the agent's `voice_id`, no longer open.
   - **Retention: 30 days, audio off — confirmed.** `retention_days: 30` and `record_voice: false` stand;
     ElevenLabs processing + storage of transcripts accepted (EU data residency is Enterprise-only).
-  - **Discovery call: 15 minutes.** Matches the Cal.com event (7103844); the 30-minute wording in the
+  - **Discovery call: 15 minutes.** Matches the Cal.com event (then 7103844, now 7747197); the 30-minute wording in the
     prompt/spec is corrected to 15. See the discovery-call-duration question (now Answered).
 - **Telnyx account now provisioned** (2026-10-09); wiring is handled by the provisioning scripts above.
 - **For Noel (remaining action):** create the post-call HMAC secret + the tool-auth secret in `.env`.
@@ -140,7 +155,7 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
   `transcripts` is the record of every call. `calls.recording_path` stays null and is the
   only recording placeholder; `RECORDINGS_DIR` / `RECORDING_RETENTION_DAYS` dropped from `.env.example`.
   Audio recording may return post-MVP (SPEC §15). The greeting disclosure should change from "recorded" to a call-logging
-  notice — flagged for Noel (caller-facing wording).
+  notice — flagged for Noel (caller-facing wording). *(Settled 2026-11-02: the greeting says calls are transcribed, not recorded.)*
 - **Phase 4 `post_call` appends a pitch-review log.** A new `transcript_log` step appends each call's
   transcript + a short summary (caller, company, outcome, objections, questions we couldn't answer) to a
   running "Call transcripts" document, for reviewing how pitches land. Idempotent on `call_id`.
@@ -202,13 +217,14 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
   availability; `POST /v2/bookings` (cal-api-version **2024-08-13**) to book. Versions are per-endpoint.
   A custom `User-Agent` is required — Cal.com's Cloudflare returns error 1010 to the default Python
   client signature (confirmed live).
-- **Event type 7103844** ("LiftPulse Trial", 15-min, auto-confirmed). Booking-field slugs confirmed
+- **Event type 7103844** ("LiftPulse Trial", 15-min, auto-confirmed). *(Cody moved off this event
+  on 2026-11-02 — see event 7747197. 7103844 stays LiftPulse.)* Booking-field slugs confirmed
   live via `GET /v2/event-types/7103844`: attendee name/email/phone are system fields (→ `attendee`
   object); custom `bookingFieldsResponses` keys are `Company` (required), `title` (required, hidden;
   then defaulted to "Intro call – <organisation>", now "Discovery call with Noel Sesto, Technical
   Director – <organisation>" — see 2026-11-02), `notes` (optional; qualification summary).
 - **Config:** `CALCOM_API_KEY` (account noelsesto) + `CALCOM_EVENT_TYPE_ID=7103844` in `.env`. HubSpot
-  Service Keys still to come from Noel.
+  Service Keys still to come from Noel. *(Event id superseded 2026-11-02: `CALCOM_EVENT_TYPE_ID=7747197`.)*
 - **Slots response shape:** `{"data": {"YYYY-MM-DD": [{"start": ISO+offset}, …]}}`; the client filters
   to [from, to] and normalises starts to UTC "…Z".
 - **Phase 1 DoD now:** a test script books a real Cal.com slot → it appears in Google Calendar →

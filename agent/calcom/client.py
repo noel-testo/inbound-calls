@@ -7,10 +7,12 @@ Two endpoints, each pinned to the cal-api-version that serves it:
   POST /v2/bookings   create booking cal-api-version 2024-08-13 (confirm in the live
                                      DoD booking test; see docs/DECISIONS.md)
 
-Event type 7103844 ("LiftPulse Trial", 15 min, auto-confirmed). Its booking fields,
-confirmed live via GET /v2/event-types/7103844: attendee name/email/phone are system
-fields; custom slugs are `Company` (text, required), `title` (text, required, hidden),
-and `notes` (textarea, optional). A custom User-Agent is set because Cal.com's
+Cody's event is 7747197 ("Control Freq discovery call", slug control-freq-discovery,
+15 min, Google Meet, auto-confirmed). Event 7103844 ("LiftPulse Trial") is not used.
+Booking fields checked on the public event (2026-11-02): name, email and
+`attendeePhoneNumber` (required) are system fields on `attendee`; custom slugs are
+`Company` (text, required), `title` (text, required, hidden) and `notes` (textarea,
+optional, labelled "Enquiry details"). A custom User-Agent is set because Cal.com's
 Cloudflare returns 1010 to the default Python client signature.
 """
 
@@ -155,8 +157,9 @@ class CalComClient:
         `organisation` is required (the `Company` booking field is required); `title`
         (required, hidden) defaults to "Discovery call with Noel Sesto, Technical
         Director – <organisation>"; `notes` carries the qualification summary.
-        `phone` is required for event 7103844 (`attendeePhoneNumber` is a required,
-        validated field) — pass the caller's CLI.
+        `phone` is required for event 7747197 (`attendeePhoneNumber` is a required,
+        validated field) — pass the caller's CLI. `notes` is the "Enquiry details"
+        question.
         """
         start_utc = _to_utc_z(start_iso)
         attendee = {"name": name, "email": email, "timeZone": timezone_name, "language": "en"}

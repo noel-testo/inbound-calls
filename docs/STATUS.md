@@ -5,7 +5,7 @@
 
 ## Done
 - **Phase 0 scaffold** — repo layout, `uv` project, pinned images, Neon project "Inbound Calls" (`wandering-union-75946614`, London, `production` branch), `receptionist` migrated and seeded (2026-10-04), Neon preview branch per PR in CI.
-- **Phase 1 — Cal.com** — `agent/calcom/` (availability + booking on event 7103844), live booking verified 2026-10-05. The HubSpot half of Phase 1 was removed on 2026-11-02.
+- **Phase 1 — Cal.com** — `agent/calcom/` (availability + booking). Live booking verified 2026-10-05 on event 7103844. Cody now books event 7747197 (`control-freq-discovery`); 7103844 stays LiftPulse. The HubSpot half of Phase 1 was removed on 2026-11-02.
 - **Phase 2 wiring (PR #9, open)** — `provision_telnyx.py` + `provision_elevenlabs.py`. Applied live for the old 0330 number: Telnyx connection 3067081943628646021; ElevenLabs agent `agent_6901m4gzr6bdfjwsmte3fxepq946` (voice, greeting, `record_voice: false`, `retention_days: 30`) with `+443301900784` imported and bound to it.
 - **CRM plan + Phase 3 webhook service (2026-11-02, this branch)** — see DECISIONS 2026-11-02:
   - HubSpot removed (code, env vars, Neon columns, docs, tests).
@@ -26,7 +26,7 @@
 5. RingCentral divert → `+442045200783`; Phase 2 live test; the ten core test calls (Phase 3 DoD); remove the 0330 number from ElevenLabs.
 
 ## Env vars Noel must supply (`.env` on the host)
-`ELEVENLABS_API_KEY`, `ELEVENLABS_WEBHOOK_SECRET` (the post-call webhook's HMAC secret), `ELEVENLABS_TOOL_SECRET` (any long random string; also stored in ElevenLabs), `ELEVENLABS_PHONE_NUMBER_ID` (printed by provisioning), `DATABASE_URL`, `CALCOM_API_KEY`, `TELNYX_API_KEY` (provisioning), `TELNYX_DID=+442045200783`, `WEBHOOK_DOMAIN`, `APOLLO_API_KEY` (master key), `APOLLO_USER_ID`, optionally `APOLLO_DEAL_STAGE_ID`, `NOTION_API_KEY`, `NOTION_LEADS_DB_ID`, `NOTION_TRANSCRIPTS_DB_ID`, `SLACK_WEBHOOK_URL`. Leave `APOLLO_CREATE_DEALS=false` until Apollo's HubSpot sync is off.
+`ELEVENLABS_API_KEY`, `ELEVENLABS_WEBHOOK_SECRET` (the post-call webhook's HMAC secret), `ELEVENLABS_TOOL_SECRET` (any long random string; also stored in ElevenLabs), `ELEVENLABS_PHONE_NUMBER_ID` (printed by provisioning), `DATABASE_URL`, `CALCOM_API_KEY`, `CALCOM_EVENT_TYPE_ID=7747197` (not 7103844), `TELNYX_API_KEY` (provisioning), `TELNYX_DID=+442045200783`, `WEBHOOK_DOMAIN`, `APOLLO_API_KEY` (master key), `APOLLO_USER_ID`, optionally `APOLLO_DEAL_STAGE_ID`, `NOTION_API_KEY`, `NOTION_LEADS_DB_ID`, `NOTION_TRANSCRIPTS_DB_ID`, `SLACK_WEBHOOK_URL`. Leave `APOLLO_CREATE_DEALS=false` until Apollo's HubSpot sync is off.
 
 ## Hosting recommendation (2026-11-02)
 ElevenLabs hosts the voice, so the host only runs the webhook service (and Windmill while it exists). **Recommendation: keep a small always-on UK VPS; drop Windmill.** Size: **2 vCPU / 4 GB RAM / 80 GB SSD in London** — ideally in AWS eu-west-2 (e.g. Lightsail London) to sit next to Neon; the service itself needs well under 1 GB, and the headroom covers image builds and logs. If Windmill is kept, the original 4 vCPU / 8 GB stands.

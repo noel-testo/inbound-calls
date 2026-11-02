@@ -13,7 +13,7 @@ import pytest
 
 from agent.calcom import CalComClient, CalComError
 
-EVENT_TYPE_ID = 7103844
+EVENT_TYPE_ID = 7747197  # control-freq-discovery; not LiftPulse Trial (7103844)
 
 
 class Recorder:

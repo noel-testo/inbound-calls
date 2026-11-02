@@ -6,7 +6,7 @@ questions are raised in the session immediately and recorded here afterwards.
 ## Open
 
 - **Business hours** for `config/greeting.yaml` and for "after hours". *Default:* Mon–Fri 09:00–17:30.
-- **Greeting, closing, emergency instruction** wording, including "recorded" vs "transcribed" in the greeting. *Default:* unchanged; TODO placeholders stay until approved; blocking for Phase 5. The discovery-call host is settled — see Answered.
+- **Greeting, closing, emergency instruction** wording. *Default:* unchanged; TODO placeholders stay until approved; blocking for Phase 5. The discovery-call host and the call-logging notice (transcribed, not recorded) are settled — see Answered.
 - **Extraction:** the §6 fields now come from ElevenLabs post-call data collection rather than a separate LLM call. *Default:* yes (no extra model provider or key).
 - **LLM:** ElevenLabs hosts the agent's LLM in the MVP; a custom LLM via ElevenLabs' custom-LLM setting (`LLM_BASE_URL`) is a post-MVP option (§15). *Default:* ElevenLabs' model, tuned for the latency budget.
 - **Scoring:** confirm or change weights and the threshold (50) in `config/scoring.yaml`. *Default:* as shipped.
@@ -28,6 +28,8 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Answered
 
+- **Call-logging notice:** calls are transcribed, not recorded. The greeting says "Calls may be transcribed for quality and training purposes." No audio is saved. (2026-11-02)
+- **Cody's Cal.com event:** 7747197, slug `control-freq-discovery`, "Control Freq discovery call", 15 minutes, Google Meet, https://cal.com/noelsesto/control-freq-discovery. `CALCOM_EVENT_TYPE_ID=7747197`. Event 7103844 ("LiftPulse Trial") stays for LiftPulse; Cody must not use it. (2026-11-02)
 - **CRM:** HubSpot removed; Neon caller directory for the call-start lookup, Notion lead-review rows for every call, Apollo (post-call, qualified callers only, never sequences) and Cody's own Slack alert. Deal creation behind `APOLLO_CREATE_DEALS` (default off). (2026-11-02)
 - **Telnyx DID:** London 020 `+442045200783`, replacing `+443301900784`. (2026-11-02)
 
@@ -35,7 +37,7 @@ questions are raised in the session immediately and recorded here afterwards.
 - **Deal pipeline:** use the existing "Sales Pipeline" (id `default`) — no new `Inbound` pipeline (Starter plan allows two). Receptionist outcomes map to existing stages: Qualified – not booked → "Lead Identified" (6139983093); Discovery booked → "Initial Contact" (6139983094). (2026-10-04) *(Superseded 2026-11-02: HubSpot removed.)*
 - **HubSpot auth:** Service Keys, not a legacy private app — `HUBSPOT_SERVICE_KEY` (runtime) + `HUBSPOT_PROVISION_KEY` (provisioning). (2026-10-04) *(Superseded 2026-11-02: HubSpot removed.)*
 - **HubSpot Service Keys provided + verified** (2026-10-05): `HUBSPOT_SERVICE_KEY` has CRM read/write/delete; `HUBSPOT_PROVISION_KEY` has schema access. Both in `.env`; provisioning + CRM live-tested. *(Superseded 2026-11-02: HubSpot removed.)*
-- **Discovery-call booking platform:** Cal.com, not HubSpot Meetings. Event type 7103844 ("LiftPulse Trial", 15-min, auto-confirmed; account noelsesto); `CALCOM_API_KEY` + `CALCOM_EVENT_TYPE_ID` in `.env`. HubSpot scheduler scope dropped; no HubSpot meeting link. (2026-10-05)
+- **Discovery-call booking platform:** Cal.com, not HubSpot Meetings. Event type 7103844 ("LiftPulse Trial", 15-min, auto-confirmed; account noelsesto); `CALCOM_API_KEY` + `CALCOM_EVENT_TYPE_ID` in `.env`. HubSpot scheduler scope dropped; no HubSpot meeting link. (2026-10-05) *(Superseded 2026-11-02: Cody's event is 7747197, `control-freq-discovery`. 7103844 stays LiftPulse.)*
 - **UK number type:** UK **0330** non-geographic Telnyx DID `+443301900784`. (2026-10-09 — supersedes the 2026-10-07 "London 020" answer; the number actually provisioned is 0330.) *(Superseded 2026-11-02: now the London 020 `+442045200783`.)*
 - **Audio recording:** none in the MVP — no `record_session` / egress / Telnyx recording; the full two-sided, timestamped Neon transcript is the record of each call (SPEC §8). Audio recording deferred post-MVP. (2026-10-07)
 - **"Call transcripts" doc destination:** **Notion** (not Google Docs) — a Notion database, one row per call (date, caller, company, outcome, summary; full transcript in the page body) so it stays searchable/filterable. `NOTION_API_KEY` + `NOTION_TRANSCRIPTS_DB_ID` to come. (2026-10-07)
@@ -44,4 +46,4 @@ questions are raised in the session immediately and recorded here afterwards.
 - **Agent name:** **Cody** — the ElevenLabs agent introduces itself as Cody in the greeting (`config/greeting.yaml`, delivered as `first_message`). (2026-10-09)
 - **Agent voice:** ElevenLabs voice `jRAAK67SEFE9m7ci5DhD` (British English), pinned as the agent's `voice_id`. (2026-10-09)
 - **ElevenLabs retention + data processing:** `retention_days: 30` with `record_voice: false` (audio off); ElevenLabs processing + storage of transcripts accepted (EU data residency is Enterprise-only). Noel still creates the post-call HMAC + tool-auth secrets in `.env`. (2026-10-09)
-- **Discovery-call duration:** **15 minutes**, matching the Cal.com event 7103844; the 30-minute wording in the prompt/spec is corrected to 15. (2026-10-09)
+- **Discovery-call duration:** **15 minutes**, matching the Cal.com event; the 30-minute wording in the prompt/spec is corrected to 15. (2026-10-09) *(Event id superseded 2026-11-02: still 15 minutes, now event 7747197.)*

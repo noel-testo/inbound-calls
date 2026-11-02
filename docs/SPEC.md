@@ -32,7 +32,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 - Intents: `new_enquiry`, `existing_customer`, `supplier_or_sales`, `other`.
 - Pre-call: CLI lookup in Cody's Neon caller directory (`callers`), within `INIT_LOOKUP_TIMEOUT_MS`.
 - Qualification against the schema in §6, scoring per `config/scoring.yaml`.
-- Booking: availability check and booking on Noel Sesto's **Cal.com** event (7103844) via a webhook tool; Cal.com sends the confirmation email and calendar invite. The booking title is "Discovery call with Noel Sesto, Technical Director – <organisation>".
+- Booking: availability check and booking on Noel Sesto's **Cal.com** event 7747197 (`control-freq-discovery`, "Control Freq discovery call", 15 min, Google Meet) via a webhook tool; Cal.com sends the confirmation email and calendar invite. The booking title is "Discovery call with Noel Sesto, Technical Director – <organisation>". Event 7103844 ("LiftPulse Trial") is not used.
 - Message-taking for existing customers and unqualified enquiries.
 - Post-call: ElevenLabs data-collection extraction, scoring, Neon write, Notion lead row + transcript row for every call; for qualified callers only, Apollo contact/account/call record/follow-up task (deal behind a flag, §9) and a Slack alert.
 - Guardrails: max duration, silence handling, no pricing, no promises, AI disclosure.
@@ -73,7 +73,7 @@ Caller ─PSTN─▶ RingCentral (office PBX) ─(after-hours / no-answer divert
 | Notion | Review | "Cody leads" (one row per call, triage status) and "Call transcripts" (one row per call, transcript in the page body). Schemas in `agent/notion/schema.py`. |
 | Apollo | Sales record for qualified callers | Post-call REST only: account, contact, call record (`call_identifier` = ElevenLabs conversation id), optional deal, follow-up task. No sequences. |
 | Slack | Alert | Cody posts its own qualified-call alert to an incoming webhook (replaces the HubSpot workflow alert). |
-| Cal.com | Discovery-call booking | Noel Sesto's event type (7103844); the webhook service checks availability and books a 15-minute call with Noel Sesto, Technical Director, and Cal.com sends the calendar invite + confirmation email (§7). |
+| Cal.com | Discovery-call booking | Noel Sesto's event 7747197 (`control-freq-discovery`, https://cal.com/noelsesto/control-freq-discovery); the webhook service checks availability and books a 15-minute call with Noel Sesto, Technical Director, and Cal.com sends the calendar invite + confirmation email (§7). Not event 7103844. |
 | Windmill | Open | Previously the post-call engine. Now only the planned n8n port (`rc_missed_call_alert`) and the nightly `retention` job would use it; both could be a cron on the host instead (QUESTIONS). |
 
 ### 4.2 Repository layout
@@ -156,8 +156,8 @@ Tools are **ElevenLabs webhook tools** that call our HTTPS webhook service, plus
 | Tool | Input | Output | Behaviour |
 |---|---|---|---|
 | conversation-init | `caller_id, called_number, conversation_id` | `dynamic_variables` + `first_message` + `asr.keywords` | `POST /elevenlabs/conversation-init`. Looks up `callers` by E.164, creates the `calls` row, returns `caller_known`, `caller_name`, `caller_first_name`, `caller_company`, `caller_relationship`, `caller_phone`, the greeting and STT terms. One Neon budget, `INIT_LOOKUP_TIMEOUT_MS` (default 1500 ms); on timeout/error → unknown caller and the agent's own first message. Never calls Apollo. Apollo ids never reach the LLM. |
-| `check_availability` | `conversation_id, from_iso, to_iso` | `{slots: [iso…]}` (max 6) | `POST /tools/check_availability` → Cal.com `GET /v2/slots` for Noel Sesto's event type. |
-| `book_meeting` | `conversation_id, slot_iso, name, email, organisation, phone?, notes?` | `{booking_id, start_iso, status}` | `POST /tools/book_meeting` → Cal.com `POST /v2/bookings` for a 15-minute discovery call with Noel Sesto, Technical Director. Title: "Discovery call with Noel Sesto, Technical Director – <organisation>". Phone defaults to the caller's CLI (required by event 7103844). Stores `calls.booking_id`. |
+| `check_availability` | `conversation_id, from_iso, to_iso` | `{slots: [iso…]}` (max 6) | `POST /tools/check_availability` → Cal.com `GET /v2/slots` for event 7747197. |
+| `book_meeting` | `conversation_id, slot_iso, name, email, organisation, phone?, notes?` | `{booking_id, start_iso, status}` | `POST /tools/book_meeting` → Cal.com `POST /v2/bookings` on event 7747197. Title: "Discovery call with Noel Sesto, Technical Director – <organisation>". `Company` is required; phone defaults to the caller's CLI (`attendeePhoneNumber` is required); `notes` is the optional "Enquiry details" question. Stores `calls.booking_id`. |
 | `take_message` | `conversation_id, category, summary, callback_number, urgency, site` | `{message_id}` | `POST /tools/take_message` → Neon `messages`. |
 | `end_call` | — | — | ElevenLabs' built-in tool; the outcome is derived post-call. |
 
@@ -243,8 +243,8 @@ Other async work: the **RingCentral missed-call alert** (port of the n8n workflo
 
 ## 13. Config files
 
-- `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice — Noel to approve; "recorded" vs "transcribed" is undecided), `closing`, `silence_prompt`, `emergency_instruction`, `expert_name` (Noel Sesto), `expert_title` (our Technical Director), `business_hours`.
-- `config/prompt.md` — the system prompt template.
+- `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice: calls are transcribed, not recorded), `closing`, `silence_prompt`, `emergency_instruction` (closing and the emergency line are still for Noel to approve), `expert_name` (Noel Sesto), `expert_title` (our Technical Director), `business_hours`. Deflections that name the host use `{expert_name}` and `{expert_title}` so the name is written once.
+- `config/prompt.md` — the system prompt template. `agent/prompt.py` fills `{{expert_name}}`, `{{expert_title}}` and `{{deflections.*}}` from the greeting file. Per-call variables stay for ElevenLabs.
 - `config/scoring.yaml` — weights and threshold.
 - `config/terms.yaml` — STT key terms with categories.
 

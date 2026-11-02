@@ -48,6 +48,7 @@ sys.path.insert(0, str(ROOT))
 
 from agent.conversation_init import DYNAMIC_VARIABLES  # noqa: E402
 from agent.extraction import data_collection_config  # noqa: E402
+from agent.prompt import render_prompt  # noqa: E402
 
 BASE_URL = "https://api.elevenlabs.io"
 
@@ -69,11 +70,9 @@ def _first_message() -> str:
 
 
 def _base_prompt() -> str:
-    # Drop the leading dev note (lines starting with "# "); keep the prompt body verbatim.
-    lines = (ROOT / "config" / "prompt.md").read_text().splitlines()
-    while lines and lines[0].startswith("# "):
-        lines.pop(0)
-    return "\n".join(lines).strip()
+    # Host name and deflections come from greeting.yaml. Per-call {{variables}} stay.
+    greeting = yaml.safe_load((ROOT / "config" / "greeting.yaml").read_text())
+    return render_prompt((ROOT / "config" / "prompt.md").read_text(), greeting)
 
 
 def _phase3_settings() -> dict:
