@@ -92,8 +92,10 @@ def _number_body(did: str, agent_id: str) -> dict:
 def _check(r: httpx.Response) -> None:
     """Raise on HTTP error, surfacing the API's error body (no secrets in it)."""
     if r.is_error:
-        print(f"  ElevenLabs API {r.status_code} on {r.request.method} {r.request.url.path}:",
-              file=sys.stderr)
+        print(
+            f"  ElevenLabs API {r.status_code} on {r.request.method} {r.request.url.path}:",
+            file=sys.stderr,
+        )
         print(f"  {r.text}", file=sys.stderr)
         r.raise_for_status()
 

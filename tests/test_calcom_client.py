@@ -96,7 +96,7 @@ async def test_book_meeting_builds_payload_and_reads_back():
         "Sam Jones",
         "sam@example.com",
         "Acme Lifts",
-        phone="+447700900123",
+        phone="+447400123456",
         notes="2 lifts, PSTN switch-off",
     )
     assert out == {
@@ -112,7 +112,7 @@ async def test_book_meeting_builds_payload_and_reads_back():
         "email": "sam@example.com",
         "timeZone": "Europe/London",
         "language": "en",
-        "phoneNumber": "+447700900123",
+        "phoneNumber": "+447400123456",
     }
     assert body["bookingFieldsResponses"] == {
         "Company": "Acme Lifts",
