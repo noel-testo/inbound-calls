@@ -1,5 +1,5 @@
-# Lead scoring — weighted sum. Edit freely; the agent and Windmill both read this from Neon `config`.
-# Run scripts/seed_config.py after editing.
+# Lead scoring — weighted sum (SPEC §6). Post-call runs in n8n; whether it scores with these weights,
+# and how config/ reaches n8n, is open (docs/QUESTIONS.md).
 
 high_value_threshold: 50
 

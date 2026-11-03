@@ -1,6 +1,6 @@
 """Mid-call webhook tools (§7): check_availability, book_meeting, take_message.
 
-Caller lookup is the conversation-init webhook (`agent/conversation_init.py`), not a tool;
+Caller lookup is n8n's conversation-init webhook, not a tool;
 `end_call` is ElevenLabs' built-in tool.
 """
 

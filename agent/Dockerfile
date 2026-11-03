@@ -9,7 +9,6 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY agent ./agent
 COPY config ./config
-COPY db ./db
 COPY scripts ./scripts
 USER nobody
 EXPOSE 8080

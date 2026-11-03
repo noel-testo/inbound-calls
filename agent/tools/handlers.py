@@ -1,12 +1,15 @@
-"""Webhook tool handlers. Each returns compact JSON the agent can speak from, logs an `events` row,
+"""Webhook tool handlers. Each returns compact JSON the agent can speak from, logs one JSON line,
 and never raises to ElevenLabs: on failure the agent is told to take a message instead (SPEC §5.1).
 
-Every tool receives `conversation_id` (the agent maps it from `system__conversation_id`).
+Every tool receives `conversation_id` (the agent maps it from `system__conversation_id`). Nothing is
+stored here: n8n's post-call flow logs the call to Notion and adds any message to the lead's
+Summary.
 """
 
 from __future__ import annotations
 
 import time
+import uuid
 
 from agent import log
 from agent.calcom import CalComError
@@ -21,9 +24,8 @@ def _ms(start: float) -> int:
     return int((time.monotonic() - start) * 1000)
 
 
-async def check_availability(store, calcom, body: dict) -> dict:
+async def check_availability(calcom, body: dict) -> dict:
     conversation_id = body.get("conversation_id")
-    call = await store.ensure_call(conversation_id) if conversation_id else None
     start = time.monotonic()
     try:
         result = await calcom.get_availability(
@@ -31,24 +33,21 @@ async def check_availability(store, calcom, body: dict) -> dict:
         )
     except (CalComError, KeyError) as e:
         log.event("tool_error", call_id=conversation_id, tool="check_availability", error=str(e))
-        if call:
-            await store.log_event(
-                call["id"], "tool_error", {"tool": "check_availability", "error": str(e)}
-            )
         return {"slots": [], "error": "unavailable", "fallback": "take_message"}
-    if call:
-        await store.log_event(
-            call["id"],
-            "tool_call",
-            {"tool": "check_availability", "slots": len(result["slots"]), "ms": _ms(start)},
-        )
+    log.event(
+        "tool_call",
+        call_id=conversation_id,
+        tool="check_availability",
+        slots=len(result["slots"]),
+        ms=_ms(start),
+    )
     return result
 
 
-async def book_meeting(store, calcom, body: dict) -> dict:
+async def book_meeting(calcom, body: dict) -> dict:
     conversation_id = body.get("conversation_id")
-    call = await store.ensure_call(conversation_id) if conversation_id else None
-    phone = to_e164(body.get("phone")) or (call or {}).get("caller_e164")
+    # Cal.com requires a phone; fall back to the CLI the agent maps from `system__caller_id`.
+    phone = to_e164(body.get("phone")) or to_e164(body.get("caller_phone"))
     start = time.monotonic()
     try:
         result = await calcom.book_meeting(
@@ -62,33 +61,30 @@ async def book_meeting(store, calcom, body: dict) -> dict:
         )
     except (CalComError, KeyError) as e:
         log.event("tool_error", call_id=conversation_id, tool="book_meeting", error=str(e))
-        if call:
-            await store.log_event(
-                call["id"], "tool_error", {"tool": "book_meeting", "error": str(e)}
-            )
         return {"status": "failed", "fallback": "take_message"}
-    if call:
-        await store.update_call(conversation_id, booking_id=str(result["booking_id"]))
-        await store.log_event(
-            call["id"],
-            "tool_call",
-            {"tool": "book_meeting", "booking_id": result["booking_id"], "ms": _ms(start)},
-        )
+    log.event(
+        "tool_call",
+        call_id=conversation_id,
+        tool="book_meeting",
+        booking_id=result["booking_id"],
+        ms=_ms(start),
+    )
     return result
 
 
-async def take_message(store, body: dict) -> dict:
+def take_message(body: dict) -> dict:
     conversation_id = body.get("conversation_id")
     if not conversation_id or not body.get("summary"):
         return {"status": "failed", "error": "conversation_id and summary are required"}
-    call = await store.ensure_call(conversation_id)
     category = body.get("category") if body.get("category") in CATEGORIES else "other"
     urgency = body.get("urgency") if body.get("urgency") in URGENCIES else "normal"
-    callback = to_e164(body.get("callback_number")) or body.get("callback_number")
-    message_id = await store.add_message(
-        call["id"], category, body["summary"], callback, urgency, body.get("site")
-    )
-    await store.log_event(
-        call["id"], "tool_call", {"tool": "take_message", "category": category, "urgency": urgency}
+    message_id = str(uuid.uuid4())
+    log.event(
+        "tool_call",
+        call_id=conversation_id,
+        tool="take_message",
+        message_id=message_id,
+        category=category,
+        urgency=urgency,
     )
     return {"message_id": message_id}

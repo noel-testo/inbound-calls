@@ -3,8 +3,8 @@
 
 Creates the "Cody" inbound-receptionist agent (British voice, no audio recording, 30-day
 transcript retention) if ELEVENLABS_AGENT_ID is unset; otherwise patches the existing agent with
-the Phase 3 settings this repo owns: the §6 data-collection fields the post-call webhook parses,
-the dynamic-variable placeholders the conversation-init webhook fills, and permission for that
+the Phase 3 settings this repo owns: the §6 data-collection fields n8n's post-call flow parses,
+the dynamic-variable placeholders n8n's conversation-init webhook fills, and permission for that
 webhook to override first_message and ASR keywords. Voice, greeting and privacy are not changed
 on an existing agent. Then imports the Telnyx DID (default +442045200783) as a SIP-trunk number
 bound to the agent. The trunk is authenticated by Telnyx's signalling source IPs.
@@ -13,8 +13,8 @@ bound to the agent. The trunk is authenticated by Telnyx's signalling source IPs
     uv run python scripts/provision_elevenlabs.py --apply     # apply (needs ELEVENLABS_API_KEY)
 
 The agent's first_message and base prompt are read from config/ (never invented here); the
-full per-call prompt, keywords and tools are supplied by the conversation-init webhook in
-Phase 3. Run scripts/provision_telnyx.py first so the DID already routes to ElevenLabs.
+per-call caller variables and keywords are supplied by n8n's conversation-init webhook. Run
+scripts/provision_telnyx.py first so the DID already routes to ElevenLabs.
 
 ElevenLabs API (https://api.elevenlabs.io, header xi-api-key):
   POST  /v1/convai/agents/create     create the agent
@@ -25,8 +25,8 @@ ElevenLabs API (https://api.elevenlabs.io, header xi-api-key):
 Other numbers still bound to the agent (the old 0330 DID, +443301900784) are reported, never
 deleted: remove them in the ElevenLabs dashboard once the 020 number is live.
 
-The conversation-init webhook URL, the post-call webhook and the three webhook tools are set in
-the ElevenLabs dashboard (see infra/elevenlabs/README.md), because they need WEBHOOK_DOMAIN live.
+The conversation-init and post-call webhook URLs (n8n) and the three webhook tools are set in
+the ElevenLabs dashboard (see infra/elevenlabs/README.md).
 
 No secrets are printed: only resource IDs and request bodies (which carry no keys).
 """
@@ -46,8 +46,17 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from agent.conversation_init import DYNAMIC_VARIABLES  # noqa: E402
 from agent.extraction import data_collection_config  # noqa: E402
+
+# n8n's conversation-init must return every one of these (ElevenLabs requirement).
+DYNAMIC_VARIABLES = {
+    "caller_known": "false",
+    "caller_name": "",
+    "caller_first_name": "",
+    "caller_company": "",
+    "caller_relationship": "",
+    "caller_phone": "",
+}
 
 BASE_URL = "https://api.elevenlabs.io"
 

@@ -1,7 +1,7 @@
 """Notion database schemas: "Cody leads" (one row per call, for review) and "Call transcripts".
 
-`scripts/provision_notion.py` adds any missing property to each database from these definitions; the
-post-call pipeline writes rows with the same property names. Each database keeps its default title
+`scripts/provision_notion.py` adds any missing property to each database from these definitions;
+n8n's post-call flow writes rows with the same property names. Each database keeps its default title
 property, named "Name". "Review" is set to "To review" on create and never overwritten, so Noel's
 triage survives a re-delivered webhook.
 """

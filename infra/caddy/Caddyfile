@@ -1,9 +1,5 @@
-# TLS for the two HTTPS surfaces on this host: the Windmill UI and the ElevenLabs webhook service.
-# Domains come from ../.env (WINDMILL_DOMAIN, WEBHOOK_DOMAIN); Caddy auto-obtains certs over 80/443.
-{$WINDMILL_DOMAIN} {
-	reverse_proxy windmill-server:8000
-}
-
+# TLS for the one HTTPS surface on this host: the ElevenLabs tool webhook service.
+# The domain comes from ../.env (WEBHOOK_DOMAIN); Caddy auto-obtains certs over 80/443.
 {$WEBHOOK_DOMAIN} {
 	reverse_proxy agent:8080
 }

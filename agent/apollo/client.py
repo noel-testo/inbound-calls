@@ -2,8 +2,10 @@
 
 Post-call only, qualified callers only. Deliberately has no sequence/emailer-campaign methods: Cody
 never adds a caller to a sequence. Apollo does not dedupe accounts or tasks on create, so callers of
-this client search first and keep the returned ids in Neon; contacts are created with `run_dedupe`,
-and call records upsert on `call_identifier`. Logging call records needs a *master* API key.
+this client must search first; contacts are created with `run_dedupe`, and call records upsert on
+`call_identifier`. Logging call records needs a *master* API key.
+
+Not wired into the service: post-call runs in n8n since DECISIONS 2026-11-03 (see QUESTIONS).
 """
 
 from __future__ import annotations
