@@ -4,30 +4,30 @@ Run every call over a real Telnyx leg from a known phone — dial the Telnyx num
 `call_id`. "Core" calls (1–10) gate Phase 3; all twenty-one gate Phase 5.
 
 Expected for every call: greeting spoken verbatim with AI disclosure and the approved call-logging notice; median
-turn latency ≤ 800 ms; no tool error audible; Neon `calls` + `transcripts` rows, a Notion "Cody leads" row and a
-"Call transcripts" row present; `calls.processed_at` set. Apollo records and a Slack alert appear **only** for
+turn latency ≤ 800 ms; no tool error audible; a Notion "Cody leads" row and a
+"Call transcripts" row present (written by n8n). Apollo records and a Slack alert appear **only** for
 qualified callers; no caller is ever added to an Apollo sequence.
 
 | # | Core | Scenario | Caller says / does | Expected outcome |
 |---|---|---|---|---|
 | 1 | ✓ | Clean high-value enquiry | Managing agent, 40 lifts, still on copper lines, wants to act before the switch-off, decision maker | `high_value`, two slots offered, meeting booked, read-back confirmed, outcome `discovery_booked`; Apollo account + linked contact + call record (`call_identifier` = conversation id) + follow-up task (+ deal if `APOLLO_CREATE_DEALS=true`); Slack alert |
 | 2 | ✓ | Low-value enquiry | Private landlord, one lift, just researching | Not high value, details taken, message `enquiry`, Notion lead row `Qualified` unticked, nothing in Apollo, no Slack alert, no booking offered |
-| 3 | ✓ | Existing customer by CLI | Call from a number already in Neon `callers` (relationship `customer`) | Greeted by name, intent confirmed, support message with site, issue, urgency, callback number; outcome `support_message` |
+| 3 | ✓ | Existing customer by CLI | Call from a number already in the Notion "Cody leads" Phone field (a customer) | Greeted by name, intent confirmed, support message with site, issue, urgency, callback number; outcome `support_message` |
 | 4 | ✓ | Email dictation | Spell an awkward email (hyphen, numbers) | Dictation mode engaged, read back digit by digit, stored correctly |
 | 5 | ✓ | Postcode and phone read-back | Give a UK postcode and a mobile number | Both read back and stored in E.164 / normalised form |
 | 6 | ✓ | Interruptions | Talk over the agent twice mid-sentence | Agent stops, yields, resumes coherently; no doubled speech |
 | 7 | ✓ | "Are you a robot?" | Ask twice | Deflection spoken as written; agent continues |
 | 8 | ✓ | Pricing push | Ask for a price three different ways | Pricing deflection each time; no number ever spoken |
 | 9 | ✓ | Silence | Go silent for 10 s, then again | Silence prompt, then close with `closing`; outcome `abandoned` |
-| 10 | ✓ | Booking failure | Take `CALCOM_API_KEY` out of `.env` for this call | Agent falls back to message; caller never hears an error; `events.tool_error` logged |
+| 10 | ✓ | Booking failure | Take `CALCOM_API_KEY` out of `.env` for this call | Agent falls back to message; caller never hears an error; a `tool_error` log line with the `call_id` |
 | 11 |  | Supplier cold call | "I'm calling from a SIM wholesaler" | `supplier_or_sales`, message `supplier`, no booking, polite close |
-| 12 |  | Withheld number | CLI withheld | Agent asks name and organisation; `cli_present=false` |
-| 13 |  | Emergency language | "There's someone stuck in a lift right now" | `emergency_instruction` spoken first, verbatim; details taken; `urgency=high` on the Neon message |
+| 12 |  | Withheld number | CLI withheld | Agent asks name and organisation; `caller_known=false` |
+| 13 |  | Emergency language | "There's someone stuck in a lift right now" | `emergency_instruction` spoken first, verbatim; details taken; `urgency=high` on the message in the lead's Notion Summary |
 | 14 |  | Wrong number | "Is this the pharmacy?" | `other`, brief polite close, no message or a minimal one |
 | 15 |  | Lift contractor, multi-site | Lift company maintaining 120 lifts across clients, 3–6 months | `high_value`, booking flow; `caller_role=lift_contractor`, `estate_size=120`, `timeline=3_6_months` |
 | 16 |  | Caller changes their mind | Agree to a slot, then ask for a different one | Second slot booked, first not booked; a single Cal.com booking |
 | 17 |  | No slots in range | Expert's calendar blocked for the test window | Agent apologises, takes details, message `enquiry`, outcome `qualified_not_booked`; Apollo contact + task; Slack alert |
 | 18 |  | Max duration | Keep talking past 7 minutes | Wrap-up at 420 s, close at 480 s, outcome `max_duration` |
 | 19 |  | Heavy accent / noisy site | Call from a plant room or car park | Transcript usable; key terms recognised; any misheard values read back and corrected |
-| 20 |  | Known customer with a new enquiry | Existing contact asks about adding car park access control | Intent switched to `new_enquiry` on confirmation; qualification; booking if high value; Apollo reuses the caller's stored contact and account ids (no duplicates) |
-| 21 |  | Re-delivered webhook | Replay the same post-call webhook (ElevenLabs retry or `scripts/replay_post_call.py <id>`) | Nothing duplicated in Notion, Apollo or Slack |
+| 20 |  | Known customer with a new enquiry | Existing contact asks about adding car park access control | Intent switched to `new_enquiry` on confirmation; qualification; booking if high value; the caller's existing Apollo contact and account are reused (no duplicates) |
+| 21 |  | Re-delivered webhook | Replay the same post-call webhook (ElevenLabs retry, or re-run the n8n execution) | Nothing duplicated in Notion, Apollo or Slack |

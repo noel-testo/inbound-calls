@@ -9,11 +9,10 @@ ControlFreq's AI receptionist, **Cody**. Answers after-hours and unanswered call
 - `docs/DECISIONS.md` — architecture decisions and version pins
 - `docs/STATUS.md` — current phase, done, next, blocked
 - `config/` — greeting, prompt, scoring rules, terms (editable without code changes)
-- `db/migrations/` — Neon `receptionist` schema, as numbered migrations
-- `agent/` — the HTTPS webhook service ElevenLabs calls
+- `agent/` — the HTTPS webhook service for Cody's three Cal.com tools
 - `infra/docker-compose.yml` — the host stack
 
-Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + London 020 DID `+442045200783`) → **ElevenLabs Agents** (the voice loop) → a small HTTPS webhook service we host. At call start the service looks the caller up in Neon; mid-call it checks and books Cal.com slots and takes messages; after the call it writes Neon, a Notion lead row and transcript for every call, and — for qualified callers only — an Apollo contact, account, call record and follow-up task plus a Slack alert. No HubSpot, no audio recording.
+Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + London 020 DID `+442045200783`) → **ElevenLabs Agents** (the voice loop). At call start **n8n** looks the caller up by phone in the Notion "Cody leads" database; mid-call a small HTTPS webhook service we host checks and books Cal.com slots and takes messages; after the call n8n writes a Notion lead row and transcript for every call, and — for qualified callers only — Apollo records and a Slack alert. No database of our own, no HubSpot, no audio recording.
 
 ```bash
 uv sync
