@@ -2,6 +2,35 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-03 — Neon dropped; n8n owns caller lookup and post-call; n8n replaces Windmill (Noel)
+
+- **Neon is removed from inbound-calls.** Cody's returning-caller lookup and all call logging run in
+  **n8n against Notion**: the conversation-init webhook looks the caller up by the "Cody leads"
+  database's **Phone** field (`+44` E.164), and n8n's post-call flow writes the Notion rows. Notion
+  is now both the caller directory and the record of every call; there is no Cody-owned database.
+- **Deleted:** `agent/store/`, `db/` (`migrate.py` and both migrations),
+  `.github/workflows/neon-branch.yml`, `scripts/seed_config.py`, `scripts/replay_post_call.py`,
+  `agent/conversation_init.py`, `agent/post_call.py` and the `/elevenlabs/conversation-init` and
+  `/elevenlabs/post-call` endpoints, with their tests; `asyncpg`; `DATABASE_URL`;
+  `WINDMILL_DATABASE_URL`.
+- **The Python service keeps only the three Cal.com tools**, with no state. `take_message` returns
+  a `message_id` and stores nothing; n8n's post-call adds the message to the lead's Notion Summary.
+  `book_meeting` takes the caller's CLI as a `caller_phone` tool parameter (mapped from
+  `system__caller_id`), because there is no longer a `calls` row to read it from. n8n also has the
+  same three tools in an inactive "Cody – Tools" workflow; the Python service will probably be
+  dropped once n8n is tested (Noel, 2026-11-03).
+- **What is lost with Neon, and now n8n's job:** recording each Apollo and Notion id as it is
+  created, the claim column that stopped two deliveries running at once, and `processed_at` plus
+  replay for failed runs. Notion rows are still keyed by Conversation ID and Apollo call records
+  upsert on `call_identifier`.
+- **Windmill is replaced by n8n.** Its containers and Caddy site are removed from compose (they ran
+  on a Neon database). This reverses the 2026-10-03 plan to retire n8n once Windmill took over the
+  RingCentral alert.
+- **CLAUDE.md rules updated:** only the n8n Notion lookup and Cal.com are touched during a call; n8n
+  replaces Neon in the component list; Notion, not Neon, is the phone-keyed caller directory.
+- **Left alone on purpose:** the GitHub secret `NEON_API_KEY`, the variable `NEON_PROJECT_ID` and the
+  Neon project itself stay until the test calls work (Noel, 2026-11-03).
+
 ## 2026-11-02 — Cody books Cal.com event 7747197, not LiftPulse Trial (Noel)
 
 - Cody's discovery calls use event type **7747197**, slug `control-freq-discovery`, title
@@ -32,6 +61,9 @@ Record every architecture decision and every pinned version here. One entry per 
 ## 2026-11-02 — HubSpot removed; Neon caller directory + Notion review + Apollo for qualified callers (Noel)
 
 Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked on PR #9):
+
+*(Superseded 2026-11-03: Neon is dropped. The caller lookup, idempotency, replay and migrations
+below are gone; caller lookup and post-call run in n8n against Notion.)*
 
 - **HubSpot is removed entirely**: `agent/hubspot/`, `scripts/provision_hubspot.py`, their tests, the
   `HUBSPOT_*` env vars, the `hubspot_*` Neon columns and the HubSpot workflow alert. The `cf_`
@@ -303,6 +335,9 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
 
 ## 2026-10-03 — Neon preview branches in CI (Noel provided the template)
 
+*(Superseded 2026-11-03: Neon dropped; the workflow is deleted. The `NEON_API_KEY` secret and
+`NEON_PROJECT_ID` variable are left in GitHub for Noel to decide on.)*
+
 - **Adopted** `.github/workflows/neon-branch.yml` from Neon's create/delete-branch template Noel
   supplied, adapted to our stack: per PR it creates an ephemeral Neon branch of "Inbound Calls",
   sets up `uv`, runs `db/migrate.py` + `scripts/seed_config.py` against the branch's `receptionist`
@@ -325,14 +360,14 @@ Owner-approved CRM plan, implemented on `cursor/apollo-notion-crm-9e49` (stacked
 Recorded 2026-10-03. Image tags verified against the registries on this date.
 
 ### Container images (`infra/docker-compose.yml`)
-- `ghcr.io/windmill-labs/windmill:v1.822.0` (server and worker, same tag) — under review (2026-11-02)
 - `caddy:2.8-alpine`
 - `agent` (`agent/Dockerfile`, 2026-11-02): `python:3.12.13-slim-bookworm`, with `uv` copied from
   `ghcr.io/astral-sh/uv:0.13.6` (both tags verified against the registries on 2026-11-02)
-- (Removed: `redis`, `livekit/livekit-server`, `livekit/sip` on 2026-10-07; FreeSWITCH on 2026-10-05)
+- (Removed: `ghcr.io/windmill-labs/windmill:v1.822.0` on 2026-11-03; `redis`,
+  `livekit/livekit-server`, `livekit/sip` on 2026-10-07; FreeSWITCH on 2026-10-05)
 
 ### Python (`.python-version`, `pyproject.toml`, `uv.lock`)
 - CPython 3.12 (resolved 3.12.13)
-- Runtime: `asyncpg==0.31.0`, `pyyaml==6.0.3`, `python-dotenv==1.2.4`, `httpx==0.28.1`,
+- Runtime (`asyncpg` removed 2026-11-03): `pyyaml==6.0.3`, `python-dotenv==1.2.4`, `httpx==0.28.1`,
   `phonenumbers==9.0.40`, `fastapi==0.162.0` (`starlette==1.10.0`), `uvicorn==0.54.0`
 - Dev: `ruff==0.16.10`, `pytest==9.1.1`, `pytest-asyncio==1.4.0`

@@ -12,25 +12,25 @@ The receptionist voice loop (STT · LLM · TTS · turn-taking) runs here. Agent:
 
 ## Agent settings owned by this repo (`scripts/provision_elevenlabs.py`)
 - **Data collection** (`platform_settings.data_collection`): the §6 fields from `agent/extraction.py`.
-  The post-call webhook parses `analysis.data_collection_results`.
+  n8n's post-call flow parses `analysis.data_collection_results`.
 - **Dynamic variables** (placeholders): `caller_known`, `caller_name`, `caller_first_name`,
-  `caller_company`, `caller_relationship`, `caller_phone` — filled by conversation-init.
+  `caller_company`, `caller_relationship`, `caller_phone` — filled by n8n's conversation-init.
 - **Overrides** (Security tab): conversation-init data from webhook enabled; `first_message` and
   ASR keywords overridable.
 
-## Set in the dashboard once `WEBHOOK_DOMAIN` is live
-- **Conversation-initiation webhook** (Agents settings): `https://$WEBHOOK_DOMAIN/elevenlabs/conversation-init`,
-  header `X-Cody-Secret: <ELEVENLABS_TOOL_SECRET>` (store it as an ElevenLabs secret).
-- **Post-call webhook** (workspace webhook, HMAC): `https://$WEBHOOK_DOMAIN/elevenlabs/post-call`,
-  transcript events only, "Send audio data" **off**; its HMAC secret is `ELEVENLABS_WEBHOOK_SECRET`.
-  Enable retries.
-- **Webhook tools** (POST, JSON body, header `X-Cody-Secret`); every tool has a `conversation_id`
-  body parameter assigned from the dynamic variable `system__conversation_id`:
+## Set in the dashboard
+- **Conversation-initiation webhook** (Agents settings): n8n's conversation-init webhook URL. It
+  looks the caller up by the "Cody leads" Phone field and must return every dynamic variable above.
+- **Post-call webhook** (workspace webhook, HMAC): n8n's post-call webhook URL, transcript events
+  only, "Send audio data" **off**; its HMAC secret is `ELEVENLABS_WEBHOOK_SECRET`. Enable retries.
+- **Webhook tools** (POST, JSON body, header `X-Cody-Secret`) on `https://$WEBHOOK_DOMAIN`; every
+  tool has a `conversation_id` body parameter assigned from the dynamic variable
+  `system__conversation_id`:
 
 | Tool | URL | Body parameters |
 |---|---|---|
 | `check_availability` | `/tools/check_availability` | `from_iso`, `to_iso` (ISO 8601). Slots on event 7747197 (`control-freq-discovery`), not 7103844. |
-| `book_meeting` | `/tools/book_meeting` | `slot_iso`, `name`, `email`, `organisation`, `phone` (optional; the event requires a number, so the service sends the caller's CLI), `notes` (optional; "Enquiry details"). Title: "Discovery call with Noel Sesto, Technical Director – <organisation>". |
+| `book_meeting` | `/tools/book_meeting` | `slot_iso`, `name`, `email`, `organisation`, `phone` (optional), `caller_phone` (from `system__caller_id`; the event requires a number, so the service sends `phone`, else this CLI), `notes` (optional; "Enquiry details"). Title: "Discovery call with Noel Sesto, Technical Director – <organisation>". |
 | `take_message` | `/tools/take_message` | `category` (enquiry/support/supplier/other), `summary`, `callback_number`, `urgency` (normal/high), `site` |
 
 ## Egress IPs (optional allowlist at Caddy)

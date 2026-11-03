@@ -1,11 +1,11 @@
 """Webhook authentication.
 
-- conversation-init and tool webhooks: a shared secret header (`X-Cody-Secret`) configured on the
-  ElevenLabs side, compared in constant time.
-- post_call_transcription: HMAC-SHA256 in the `ElevenLabs-Signature` header,
-  `t=<unix>,v0=<hex>`, over `"<t>.<raw body>"` — the scheme the ElevenLabs SDK's `construct_event`
-  verifies. Verified on the raw bytes before any JSON parsing; stale timestamps are rejected to
-  blunt replays.
+- tool webhooks: a shared secret header (`X-Cody-Secret`) configured on the ElevenLabs side,
+  compared in constant time.
+- post_call_transcription (now received by n8n; not used by the service): HMAC-SHA256 in the
+  `ElevenLabs-Signature` header, `t=<unix>,v0=<hex>`, over `"<t>.<raw body>"` — the scheme the
+  ElevenLabs SDK's `construct_event` verifies. Verified on the raw bytes before any JSON parsing;
+  stale timestamps are rejected to blunt replays.
 """
 
 from __future__ import annotations

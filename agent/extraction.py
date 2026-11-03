@@ -1,8 +1,8 @@
 """The §6 qualification schema, extracted post-call by ElevenLabs data collection.
 
 The same field list provisions the agent's `platform_settings.data_collection`
-(scripts/provision_elevenlabs.py) and parses `analysis.data_collection_results` in the post-call
-webhook, so the two cannot drift. Enum values outside the schema become `unknown`.
+(scripts/provision_elevenlabs.py) and defines how `analysis.data_collection_results` is parsed;
+n8n's post-call flow must use the same field names. Enum values outside the schema become `unknown`.
 """
 
 from __future__ import annotations

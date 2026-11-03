@@ -1,6 +1,7 @@
 # Inbound Calls — host stack. Pin every image tag (docs/DECISIONS.md). All secrets from ../.env.
 # Ingress is Telnyx → ElevenLabs (external) and the voice loop is ElevenLabs. This host runs only the
-# webhook service (ElevenLabs calls it), Windmill on Neon, and Caddy for TLS. No LiveKit / Redis / SIP.
+# webhook service for the three Cal.com tools (ElevenLabs calls it) and Caddy for TLS. Caller lookup
+# and post-call run in n8n, not here. No database, no LiveKit / Redis / SIP / Windmill.
 
 services:
   agent:
@@ -13,22 +14,6 @@ services:
       - ../config:/app/config:ro
     # No public ports: Caddy terminates TLS and reverse-proxies ElevenLabs' webhook calls here.
 
-  windmill-server:
-    image: ghcr.io/windmill-labs/windmill:v1.822.0
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${WINDMILL_DATABASE_URL}
-      MODE: server
-
-  windmill-worker:
-    image: ghcr.io/windmill-labs/windmill:v1.822.0   # same tag as server
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${WINDMILL_DATABASE_URL}
-      MODE: worker
-      WORKER_GROUP: default
-    depends_on: [windmill-server]
-
   caddy:
     image: caddy:2.8-alpine
     restart: unless-stopped
@@ -36,12 +21,11 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      WINDMILL_DOMAIN: ${WINDMILL_DOMAIN}
       WEBHOOK_DOMAIN: ${WEBHOOK_DOMAIN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-    depends_on: [windmill-server, agent]
+    depends_on: [agent]
 
 volumes:
   caddy_data:

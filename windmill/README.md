@@ -1,16 +1,14 @@
-# Windmill — under review
+# Windmill — replaced by n8n
 
-The post-call pipeline no longer runs here: it runs in the webhook service (`agent/post_call.py`),
-because the owner-approved CRM plan (DECISIONS 2026-11-02) has the post-call webhook write Neon,
-Notion, Apollo and Slack directly, and that path needs no human in the loop.
+Windmill is no longer part of inbound-calls (DECISIONS 2026-11-03). It ran on a Neon database, and
+Neon is dropped; **n8n** replaces it.
 
-What would still use Windmill:
+What was planned for Windmill now belongs in n8n:
 
-- `rc_missed_call_alert/` — port of the current n8n RingCentral missed-call → Slack workflow. Export
-  the n8n JSON into `rc_missed_call_alert/reference/` first.
-- `retention/` — nightly: delete Notion "Call transcripts" rows older than 12 months, purge Neon
-  transcripts if Noel sets a policy, and run `scripts/replay_post_call.py`.
+- **Conversation-init** — caller lookup by phone in the Notion "Cody leads" database.
+- **Post-call** — the Notion rows for every call; for qualified callers, Apollo and the Slack alert.
+- **RingCentral missed-call → Slack alert** — already an n8n workflow; it stays there.
+- **Retention** — delete Notion "Call transcripts" rows older than 12 months.
 
-Both are small enough to be one more webhook route plus a cron entry on the host, which would let
-Windmill (two containers and a Neon database) be removed. That is a question for Noel
-(docs/QUESTIONS.md); until it is answered, the Windmill services stay in compose.
+The Windmill containers and Caddy site are removed from `infra/`. This folder can be deleted once
+nothing points at it.

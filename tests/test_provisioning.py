@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-from agent.conversation_init import DYNAMIC_VARIABLES
 from agent.extraction import FIELDS
 from agent.notion.schema import LEADS, TRANSCRIPTS
 
@@ -31,7 +30,8 @@ def test_elevenlabs_patch_carries_data_collection_and_placeholders():
     el = load("provision_elevenlabs")
     body = el._phase3_settings()
     agent = body["conversation_config"]["agent"]
-    assert agent["dynamic_variables"]["dynamic_variable_placeholders"] == DYNAMIC_VARIABLES
+    placeholders = agent["dynamic_variables"]["dynamic_variable_placeholders"]
+    assert placeholders == el.DYNAMIC_VARIABLES and placeholders["caller_known"] == "false"
     ps = body["platform_settings"]
     assert set(ps["data_collection"]) == set(FIELDS)
     assert ps["overrides"]["enable_conversation_initiation_client_data_from_webhook"] is True

@@ -4,7 +4,6 @@ version = "0.0.0"
 description = "ControlFreq self-hosted AI call answering service"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "asyncpg>=0.30",
     "pyyaml>=6.0",
     "python-dotenv>=1.0",
     "httpx>=0.27",
@@ -13,7 +12,7 @@ dependencies = [
     "uvicorn>=0.30",
 ]
 
-# fastapi + uvicorn run the ElevenLabs webhook service (agent/app.py); the voice loop is hosted by
+# fastapi + uvicorn run the ElevenLabs tool webhook service (agent/app.py); the voice loop is hosted by
 # ElevenLabs, so there are no STT/LLM/TTS SDKs here.
 
 [dependency-groups]

@@ -1,7 +1,8 @@
 """Thin async Notion client (API version 2022-06-28, database-id parents).
 
-Rows are found by their "Conversation ID" property so a re-delivered webhook updates the same page;
-the page id is also kept in Neon. Rich text is capped at Notion's 2,000 characters per text object,
+Rows are found by their "Conversation ID" property so a re-delivered webhook updates the same page.
+Used by `scripts/provision_notion.py`; n8n's post-call flow writes the rows. Rich text is capped at
+Notion's 2,000 characters per text object,
 and page bodies are appended in batches of 100 blocks (Notion's per-request limit).
 """
 
