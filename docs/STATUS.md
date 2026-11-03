@@ -4,9 +4,9 @@
 **Last updated:** 2026-11-03
 
 ## Done
-- **Neon dropped (2026-11-03, branch `remove-neon`)** — see DECISIONS 2026-11-03. Removed `agent/store/`, `db/`, the Neon preview-branch workflow, `seed_config.py`, `replay_post_call.py`, conversation-init, post-call, `asyncpg`, `DATABASE_URL` and the Windmill containers. The service is now the three Cal.com tools with no state; `take_message` returns a `message_id` only. 28 tests pass; ruff clean.
+- **Neon dropped (2026-11-03, branch `remove-neon`)** — see DECISIONS 2026-11-03. Removed `agent/store/`, `db/`, the Neon preview-branch workflow, `seed_config.py`, `replay_post_call.py`, conversation-init, post-call, `asyncpg`, `DATABASE_URL` and the Windmill containers. The service is now the three Cal.com tools with no state; `take_message` returns a `message_id` only.
 - **Phase 0 scaffold** — repo layout, `uv` project, pinned images, Neon project "Inbound Calls" (`wandering-union-75946614`, London, `production` branch), `receptionist` migrated and seeded (2026-10-04), Neon preview branch per PR in CI. *(Neon dropped 2026-11-03.)*
-- **Phase 1 — Cal.com** — `agent/calcom/` (availability + booking on event 7103844), live booking verified 2026-10-05. The HubSpot half of Phase 1 was removed on 2026-11-02.
+- **Phase 1 — Cal.com** — `agent/calcom/` (availability + booking). Live booking verified 2026-10-05 on event 7103844. Cody now books event 7747197 (`control-freq-discovery`); 7103844 stays LiftPulse. The HubSpot half of Phase 1 was removed on 2026-11-02.
 - **Phase 2 wiring (PR #9, open)** — `provision_telnyx.py` + `provision_elevenlabs.py`. Applied live for the old 0330 number: Telnyx connection 3067081943628646021; ElevenLabs agent `agent_6901m4gzr6bdfjwsmte3fxepq946` (voice, greeting, `record_voice: false`, `retention_days: 30`) with `+443301900784` imported and bound to it.
 - **CRM plan + Phase 3 webhook service (2026-11-02, PR #10, merged)** — see DECISIONS 2026-11-02. *(The Neon caller lookup, post-call pipeline, migrations and replay below were removed on 2026-11-03; n8n owns them.)*
   - HubSpot removed (code, env vars, Neon columns, docs, tests).
@@ -27,7 +27,7 @@
 4. RingCentral divert → `+442045200783`; Phase 2 live test; the ten core test calls (Phase 3 DoD); remove the 0330 number from ElevenLabs.
 
 ## Env vars Noel must supply (`.env` on the host)
-The Python service reads only `ELEVENLABS_TOOL_SECRET` (any long random string; also stored in ElevenLabs), `CALCOM_API_KEY` and `CALCOM_EVENT_TYPE_ID`. Provisioning also needs `ELEVENLABS_API_KEY`, `ELEVENLABS_PHONE_NUMBER_ID` (printed by provisioning), `TELNYX_API_KEY`, `TELNYX_DID=+442045200783`, `NOTION_API_KEY`, `NOTION_LEADS_DB_ID` and `NOTION_TRANSCRIPTS_DB_ID`; Caddy needs `WEBHOOK_DOMAIN`. `ELEVENLABS_WEBHOOK_SECRET`, `APOLLO_*` and `SLACK_WEBHOOK_URL` are for n8n's post-call flow (n8n credentials). Leave `APOLLO_CREATE_DEALS=false` until Apollo's HubSpot sync is off.
+The Python service reads only `ELEVENLABS_TOOL_SECRET` (any long random string; also stored in ElevenLabs), `CALCOM_API_KEY` and `CALCOM_EVENT_TYPE_ID=7747197` (not 7103844). Provisioning also needs `ELEVENLABS_API_KEY`, `ELEVENLABS_PHONE_NUMBER_ID` (printed by provisioning), `TELNYX_API_KEY`, `TELNYX_DID=+442045200783`, `NOTION_API_KEY`, `NOTION_LEADS_DB_ID` and `NOTION_TRANSCRIPTS_DB_ID`; Caddy needs `WEBHOOK_DOMAIN`. `ELEVENLABS_WEBHOOK_SECRET`, `APOLLO_*` and `SLACK_WEBHOOK_URL` are for n8n's post-call flow (n8n credentials). Leave `APOLLO_CREATE_DEALS=false` until Apollo's HubSpot sync is off.
 
 ## Hosting (2026-11-03)
 ElevenLabs hosts the voice and n8n runs caller lookup and post-call, so the host only runs the stateless tool service and Caddy. The 2026-11-02 VPS sizing (2 vCPU / 4 GB / 80 GB in London) is more than enough for that, and there is no longer a cold Neon compute in the call-start path. If the Python service is dropped in favour of n8n's "Cody – Tools" workflow, no host is needed for this repo at all (QUESTIONS).
@@ -52,4 +52,5 @@ ElevenLabs hosts the voice and n8n runs caller lookup and post-call, so the host
 - [ ] RingCentral after-hours rule → `+442045200783`
 - [ ] RingCentral no-answer forwarding → `+442045200783`
 - [ ] Old 0330 number removed from ElevenLabs
+- [ ] Once the test calls work: Neon project, GitHub `NEON_API_KEY` secret and `NEON_PROJECT_ID` variable removed
 - [ ] Two-week after-hours review period scheduled

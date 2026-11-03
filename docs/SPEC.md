@@ -10,7 +10,7 @@ A self-hosted AI call answering service for ControlFreq that:
 
 - answers **after-hours and unanswered** calls on the main RingCentral number,
 - recognises returning callers by CLI from the **Phone field of the Notion "Cody leads" database** and takes a structured message,
-- qualifies new enquiries against a fixed schema and books **high-value leads into a discovery call** with the solution expert via Cal.com,
+- qualifies new enquiries against a fixed schema and books **high-value leads into a 15-minute discovery call** with Noel Sesto, Technical Director, via Cal.com,
 - logs every call, transcript and outcome in **Notion** (a lead-review row and a transcript row per call), and puts **qualified callers into Apollo** after the call,
 - keeps the **data** under ControlFreq's control (ControlFreq's Notion is the record of every call); the voice loop (STT/LLM/TTS/turn-taking) is hosted by ElevenLabs Agents.
 
@@ -18,7 +18,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 
 ## 2. Design principles
 
-1. **The best part is no part.** The components: RingCentral, Telnyx, **ElevenLabs Agents**, Cal.com, **n8n**, Notion, Apollo, Slack (an incoming webhook) — plus one small HTTPS **webhook service** we host for the three Cal.com tools. **Neon and Windmill are dropped** (DECISIONS 2026-11-03); **HubSpot is removed** (2026-11-02). Telephony ingress is Telnyx → ElevenLabs over a SIP trunk; **LiveKit, the self-hosted Python agent, FreeSWITCH and RingCentral SIP registration are all dropped** (DECISIONS 2026-10-07/2026-10-05). Whether the Python service is still needed once n8n's own tools are tested is open (QUESTIONS).
+1. **The best part is no part.** The components: RingCentral, Telnyx, **ElevenLabs Agents**, Cal.com, **n8n**, Notion, Apollo, Slack (an incoming webhook) — plus one small HTTPS **webhook service** we host for the three Cal.com tools. **Neon and Windmill are dropped** (DECISIONS 2026-11-03); **HubSpot is removed** (2026-11-02). Telephony ingress is Telnyx → ElevenLabs over a SIP trunk; **LiveKit, the self-hosted Python agent, FreeSWITCH and RingCentral SIP registration are all dropped** (DECISIONS 2026-10-07/2026-10-05). The Python service will probably be dropped once n8n's own tools are tested (QUESTIONS).
 2. **Nothing slow in the call path.** The caller lookup at call start is an n8n Notion query. Mid-call tools are ElevenLabs webhook tools that call our service, which talks only to Cal.com. **Apollo, Slack and every Notion write are post-call only**, in n8n, after the post-call webhook has been acknowledged.
 3. **There is no Cody-owned database.** **Notion is the review surface and the record of every call** (one lead row and one transcript row per call), and the "Cody leads" **Phone** field (`+44` E.164) is the **caller directory** the call-start lookup needs, because Apollo cannot search by phone. **Apollo is the sales record** for qualified callers (contact, account, call record, deal, follow-up task).
 4. **The voice loop is ElevenLabs.** STT, LLM, TTS and turn-taking are all hosted by ElevenLabs Agents (no `agent/providers/`, no local VAD/STT/TTS). A custom LLM endpoint is possible later via ElevenLabs' custom-LLM setting if we want to own the model (§15).
@@ -33,7 +33,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 - Intents: `new_enquiry`, `existing_customer`, `supplier_or_sales`, `other`.
 - Pre-call: CLI lookup by the "Cody leads" Phone field, in n8n, within `INIT_LOOKUP_TIMEOUT_MS`.
 - Qualification against the schema in §6, scoring per `config/scoring.yaml`.
-- Booking: availability check and booking on the expert's **Cal.com** event (7103844) via a webhook tool; Cal.com sends the confirmation email and calendar invite.
+- Booking: availability check and booking on Noel Sesto's **Cal.com** event 7747197 (`control-freq-discovery`, "Control Freq discovery call", 15 min, Google Meet) via a webhook tool; Cal.com sends the confirmation email and calendar invite. The booking title is "Discovery call with Noel Sesto, Technical Director – <organisation>". Event 7103844 ("LiftPulse Trial") is not used.
 - Message-taking for existing customers and unqualified enquiries.
 - Post-call (n8n): ElevenLabs data-collection extraction, scoring, Notion lead row + transcript row for every call; for qualified callers only, Apollo contact/account/call record/follow-up task (deal behind a flag, §9) and a Slack alert.
 - Guardrails: max duration, silence handling, no pricing, no promises, AI disclosure.
@@ -73,7 +73,8 @@ Caller ─PSTN─▶ RingCentral (office PBX) ─(after-hours / no-answer divert
 | Notion | Record + review + caller directory | "Cody leads" (one row per call, triage status; its Phone field is the caller directory) and "Call transcripts" (one row per call, transcript in the page body). Schemas in `agent/notion/schema.py`. |
 | Apollo | Sales record for qualified callers | Post-call REST only: account, contact, call record (`call_identifier` = ElevenLabs conversation id), optional deal, follow-up task. No sequences. |
 | Slack | Alert | Cody posts its own qualified-call alert to an incoming webhook (replaces the HubSpot workflow alert). |
-| Cal.com | Discovery-call booking | The expert's event type (7103844); the webhook service checks availability and books, and Cal.com sends the calendar invite + confirmation email (§7). |
+| Cal.com | Discovery-call booking | Noel Sesto's event 7747197 (`control-freq-discovery`, https://cal.com/noelsesto/control-freq-discovery); the webhook service checks availability and books a 15-minute call with Noel Sesto, Technical Director, and Cal.com sends the calendar invite + confirmation email (§7). Not event 7103844. |
+
 ### 4.2 Repository layout
 
 ```
@@ -82,6 +83,7 @@ agent/            webhook service (FastAPI), no state
   tools/          one handler per webhook tool (§7)
   calcom/         Cal.com v2 client: availability + booking
   extraction.py   §6 schema ↔ ElevenLabs data collection
+  prompt.py       fills the host name and deflections into config/prompt.md (provisioning)
   notion/         thin Notion client + the two database schemas (provisioning)
   scoring.py, apollo/, slack.py   no longer called since post-call moved to n8n (QUESTIONS)
   Dockerfile
@@ -109,7 +111,7 @@ A state machine executed by the LLM under the prompt and enforced by tool availa
 2. **Identify** — n8n's conversation-init webhook looks up `caller_id` (E.164) in the "Cody leads" Phone field before the greeting. Known caller → greet by name; intent defaults to `existing_customer` if they are a known customer, but is confirmed in one question. Unknown or withheld CLI → ask who is calling and the organisation.
 3. **Intent** — one open question ("How can I help?"), classified into the four intents. Ambiguous → one clarifying question, then `other`.
 4. **Branch**
-   - `new_enquiry` → **Qualify** (§6, conversationally, not as a form; at most one question per turn; skip anything already said) → if high value: offer a discovery call with the expert, `check_availability`, offer two slots, `book_meeting`, read back date, time, name and email → close. If not high value: capture organisation, name, email, requirement; say the team will email information; `take_message(category=enquiry)` → close.
+   - `new_enquiry` → **Qualify** (§6, conversationally, not as a form; at most one question per turn; skip anything already said) → if high value: offer a 15-minute discovery call with Noel Sesto, our Technical Director, `check_availability`, offer two slots, `book_meeting`, read back date, time, that it is with Noel Sesto, name and email → close. If not high value: capture organisation, name, email, requirement; say the team will email information; `take_message(category=enquiry)` → close.
    - `existing_customer` → ask site, issue, urgency, best callback number; `take_message(category=support)`. If the caller describes an active emergency, say `emergency_instruction` from `config/greeting.yaml` verbatim first, then take details → close.
    - `supplier_or_sales` → name, company, purpose, email; `take_message(category=supplier)`; no booking, no transfer → close politely.
    - `other` → `take_message(category=other)` → close.
@@ -150,8 +152,8 @@ Tools are **ElevenLabs webhook tools** that call our HTTPS webhook service, plus
 | Tool | Input | Output | Behaviour |
 |---|---|---|---|
 | conversation-init (n8n) | `caller_id, called_number, conversation_id` | `dynamic_variables` + `first_message` + `asr.keywords` | n8n looks up the "Cody leads" Phone field by E.164 and returns `caller_known`, `caller_name`, `caller_first_name`, `caller_company`, `caller_relationship`, `caller_phone`, the greeting and STT terms. Budget `INIT_LOOKUP_TIMEOUT_MS` (default 1500 ms); on timeout/error → unknown caller and the agent's own first message. Never calls Apollo. Apollo ids never reach the LLM. |
-| `check_availability` | `conversation_id, from_iso, to_iso` | `{slots: [iso…]}` (max 6) | `POST /tools/check_availability` → Cal.com `GET /v2/slots` for the expert's event type. |
-| `book_meeting` | `conversation_id, slot_iso, name, email, organisation, phone?, caller_phone, notes?` | `{booking_id, start_iso, status}` | `POST /tools/book_meeting` → Cal.com `POST /v2/bookings`; phone is `phone`, else `caller_phone` (the CLI, mapped from `system__caller_id`), because Cal.com requires one. |
+| `check_availability` | `conversation_id, from_iso, to_iso` | `{slots: [iso…]}` (max 6) | `POST /tools/check_availability` → Cal.com `GET /v2/slots` for event 7747197. |
+| `book_meeting` | `conversation_id, slot_iso, name, email, organisation, phone?, caller_phone, notes?` | `{booking_id, start_iso, status}` | `POST /tools/book_meeting` → Cal.com `POST /v2/bookings` on event 7747197. Title: "Discovery call with Noel Sesto, Technical Director – <organisation>". `Company` is required; phone is `phone`, else `caller_phone` (the CLI, mapped from `system__caller_id`), because `attendeePhoneNumber` is required; `notes` is the optional "Enquiry details" question. |
 | `take_message` | `conversation_id, category, summary, callback_number, urgency, site` | `{message_id}` | `POST /tools/take_message` returns a new `message_id` and stores nothing; n8n's post-call adds the message to the lead's Notion Summary. |
 | `end_call` | — | — | ElevenLabs' built-in tool; the outcome is derived post-call. |
 
@@ -234,8 +236,8 @@ Other async work in n8n: the existing **RingCentral missed-call alert**, and a n
 
 ## 13. Config files
 
-- `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice — Noel to approve; "recorded" vs "transcribed" is undecided), `closing`, `silence_prompt`, `emergency_instruction`, `expert_name`, `expert_title` (still TODO), `business_hours`.
-- `config/prompt.md` — the system prompt template.
+- `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice: calls are transcribed, not recorded), `closing`, `silence_prompt`, `emergency_instruction` (closing and the emergency line are still for Noel to approve), `expert_name` (Noel Sesto), `expert_title` (our Technical Director), `business_hours`. Deflections that name the host use `{expert_name}` and `{expert_title}` so the name is written once.
+- `config/prompt.md` — the system prompt template. `agent/prompt.py` fills `{{expert_name}}`, `{{expert_title}}` and `{{deflections.*}}` from the greeting file. Per-call variables stay for ElevenLabs.
 - `config/scoring.yaml` — weights and threshold.
 - `config/terms.yaml` — STT key terms with categories.
 
@@ -257,7 +259,7 @@ Other async work in n8n: the existing **RingCentral missed-call alert**, and a n
 
 ## 15. After the MVP (not now)
 
-1. Live warm transfer when the expert is available: availability check, then a transfer via Telnyx/ElevenLabs (or a RingCentral route) to a human, context pushed to Slack before pickup. Unlocks daytime traffic.
+1. Live warm transfer when Noel Sesto, Technical Director, is available: availability check, then a transfer via Telnyx/ElevenLabs (or a RingCentral route) to him, context pushed to Slack before pickup. Unlocks daytime traffic.
 2. Self-learning knowledge base: unanswered questions → a review queue (Notion) → approval step → Slack approve/edit → approved entries → retrieval tool in the agent.
 3. Inbox: Notion is the inbox (calls, transcript, review status, KB queue).
 4. Outbound: form submission → callback within minutes; PSTN switch-off campaign to the existing base.

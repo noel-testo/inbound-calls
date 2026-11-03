@@ -1,7 +1,7 @@
 """HTTPS webhook service for Cody's three Cal.com tools (SPEC §4.1, §7).
 
-    POST /tools/check_availability       Cal.com slots (X-Cody-Secret)
-    POST /tools/book_meeting             Cal.com booking (X-Cody-Secret)
+    POST /tools/check_availability       Noel Sesto's Cal.com slots (X-Cody-Secret)
+    POST /tools/book_meeting             books a discovery call with Noel Sesto (X-Cody-Secret)
     POST /tools/take_message             returns a message_id; no storage (X-Cody-Secret)
     GET  /healthz
 

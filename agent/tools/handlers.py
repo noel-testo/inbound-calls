@@ -25,6 +25,7 @@ def _ms(start: float) -> int:
 
 
 async def check_availability(calcom, body: dict) -> dict:
+    """Slots on Noel Sesto's discovery-call calendar (Cal.com event 7747197)."""
     conversation_id = body.get("conversation_id")
     start = time.monotonic()
     try:
@@ -45,6 +46,7 @@ async def check_availability(calcom, body: dict) -> dict:
 
 
 async def book_meeting(calcom, body: dict) -> dict:
+    """Book a 15-minute discovery call with Noel Sesto, Technical Director."""
     conversation_id = body.get("conversation_id")
     # Cal.com requires a phone; fall back to the CLI the agent maps from `system__caller_id`.
     phone = to_e164(body.get("phone")) or to_e164(body.get("caller_phone"))

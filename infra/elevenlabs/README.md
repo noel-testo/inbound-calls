@@ -29,8 +29,8 @@ The receptionist voice loop (STT · LLM · TTS · turn-taking) runs here. Agent:
 
 | Tool | URL | Body parameters |
 |---|---|---|
-| `check_availability` | `/tools/check_availability` | `from_iso`, `to_iso` (ISO 8601) |
-| `book_meeting` | `/tools/book_meeting` | `slot_iso`, `name`, `email`, `organisation`, `phone` (optional), `caller_phone` (from `system__caller_id`), `notes` (optional) |
+| `check_availability` | `/tools/check_availability` | `from_iso`, `to_iso` (ISO 8601). Slots on event 7747197 (`control-freq-discovery`), not 7103844. |
+| `book_meeting` | `/tools/book_meeting` | `slot_iso`, `name`, `email`, `organisation`, `phone` (optional), `caller_phone` (from `system__caller_id`; the event requires a number, so the service sends `phone`, else this CLI), `notes` (optional; "Enquiry details"). Title: "Discovery call with Noel Sesto, Technical Director – <organisation>". |
 | `take_message` | `/tools/take_message` | `category` (enquiry/support/supplier/other), `summary`, `callback_number`, `urgency` (normal/high), `site` |
 
 ## Egress IPs (optional allowlist at Caddy)
