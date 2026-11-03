@@ -10,7 +10,7 @@ qualified callers; no caller is ever added to an Apollo sequence.
 
 | # | Core | Scenario | Caller says / does | Expected outcome |
 |---|---|---|---|---|
-| 1 | ✓ | Clean high-value enquiry | Managing agent, 40 lifts, still on copper lines, wants to act before the switch-off, decision maker | `high_value`, two slots offered, meeting booked, read-back confirmed, outcome `discovery_booked`; Apollo account + linked contact + call record (`call_identifier` = conversation id) + follow-up task (+ deal if `APOLLO_CREATE_DEALS=true`); Slack alert |
+| 1 | ✓ | Clean high-value enquiry | Managing agent, 40 lifts, still on copper lines, wants to act before the switch-off, decision maker | `high_value`, offered as a 15-minute call with Noel Sesto, our Technical Director, two slots offered, meeting booked, read-back names Noel Sesto and confirms date, time, name and email, outcome `discovery_booked`; Apollo account + linked contact + call record (`call_identifier` = conversation id) + follow-up task (+ deal if `APOLLO_CREATE_DEALS=true`); Slack alert |
 | 2 | ✓ | Low-value enquiry | Private landlord, one lift, just researching | Not high value, details taken, message `enquiry`, Notion lead row `Qualified` unticked, nothing in Apollo, no Slack alert, no booking offered |
 | 3 | ✓ | Existing customer by CLI | Call from a number already in Neon `callers` (relationship `customer`) | Greeted by name, intent confirmed, support message with site, issue, urgency, callback number; outcome `support_message` |
 | 4 | ✓ | Email dictation | Spell an awkward email (hyphen, numbers) | Dictation mode engaged, read back digit by digit, stored correctly |
@@ -26,7 +26,7 @@ qualified callers; no caller is ever added to an Apollo sequence.
 | 14 |  | Wrong number | "Is this the pharmacy?" | `other`, brief polite close, no message or a minimal one |
 | 15 |  | Lift contractor, multi-site | Lift company maintaining 120 lifts across clients, 3–6 months | `high_value`, booking flow; `caller_role=lift_contractor`, `estate_size=120`, `timeline=3_6_months` |
 | 16 |  | Caller changes their mind | Agree to a slot, then ask for a different one | Second slot booked, first not booked; a single Cal.com booking |
-| 17 |  | No slots in range | Expert's calendar blocked for the test window | Agent apologises, takes details, message `enquiry`, outcome `qualified_not_booked`; Apollo contact + task; Slack alert |
+| 17 |  | No slots in range | Noel Sesto's calendar blocked for the test window | Agent apologises, takes details, message `enquiry`, outcome `qualified_not_booked`; Apollo contact + task; Slack alert |
 | 18 |  | Max duration | Keep talking past 7 minutes | Wrap-up at 420 s, close at 480 s, outcome `max_duration` |
 | 19 |  | Heavy accent / noisy site | Call from a plant room or car park | Transcript usable; key terms recognised; any misheard values read back and corrected |
 | 20 |  | Known customer with a new enquiry | Existing contact asks about adding car park access control | Intent switched to `new_enquiry` on confirmation; qualification; booking if high value; Apollo reuses the caller's stored contact and account ids (no duplicates) |

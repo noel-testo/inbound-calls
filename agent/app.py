@@ -1,8 +1,8 @@
 """HTTPS webhook service that ElevenLabs calls (SPEC §4.1, §7, §8).
 
     POST /elevenlabs/conversation-init   caller lookup at call start (X-Cody-Secret)
-    POST /tools/check_availability       Cal.com slots (X-Cody-Secret)
-    POST /tools/book_meeting             Cal.com booking (X-Cody-Secret)
+    POST /tools/check_availability       Noel Sesto's Cal.com slots (X-Cody-Secret)
+    POST /tools/book_meeting             books a discovery call with Noel Sesto (X-Cody-Secret)
     POST /tools/take_message             Neon message (X-Cody-Secret)
     POST /elevenlabs/post-call           post_call_transcription (HMAC ElevenLabs-Signature)
     GET  /healthz

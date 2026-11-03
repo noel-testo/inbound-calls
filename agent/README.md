@@ -6,8 +6,8 @@ service** that ElevenLabs calls (SPEC §4.1, §7, §8, §11).
 | Endpoint | Auth | Does |
 |---|---|---|
 | `POST /elevenlabs/conversation-init` | `X-Cody-Secret` | Caller lookup in Neon `callers` by E.164 within `INIT_LOOKUP_TIMEOUT_MS`; returns dynamic variables, the greeting (`first_message`) and STT keywords. Fails soft. |
-| `POST /tools/check_availability` | `X-Cody-Secret` | Cal.com slots. |
-| `POST /tools/book_meeting` | `X-Cody-Secret` | Cal.com booking; caller's CLI as the attendee phone. |
+| `POST /tools/check_availability` | `X-Cody-Secret` | Slots on Noel Sesto's Cal.com calendar. |
+| `POST /tools/book_meeting` | `X-Cody-Secret` | Books a 15-minute discovery call with Noel Sesto, Technical Director; caller's CLI as the attendee phone. |
 | `POST /tools/take_message` | `X-Cody-Secret` | Neon `messages`. |
 | `POST /elevenlabs/post-call` | HMAC `ElevenLabs-Signature` | Verifies on the raw body, stores the payload, answers 200, then runs `post_call.py`. |
 | `GET /healthz` | — | Liveness. |
