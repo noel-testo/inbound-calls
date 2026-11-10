@@ -5,6 +5,12 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Open
 
+- **Line wording (issue #13):** the per-line greetings in `config/greeting.yaml` (`line_greetings`) and the per-line prompt sections in `config/prompt_lines.md` are proposals. *Default:* as written; the RC lines stay inert and the parking section stays a placeholder until Noel approves them and supplies the parking training material.
+- **RC numbers (issue #13):** the RingCentral sales, accounts and support DDIs for `config/lines.yaml`. *Default:* those lines never match, so their calls get the general greeting.
+- **Noel direct, cold sales calls:** should Cody transfer every screened call, or take a message for obvious sales and marketing calls? *Default:* transfer every call.
+- **Noel direct, voicemail:** a conference transfer to a mobile that goes to voicemail can put the caller through to the voicemail greeting. *Default:* none until tested (TEST-CALLS 24); the fix is to switch Noel's mobile voicemail off or shorten the ring time.
+- **Warm transfer whisper:** not available on a Telnyx SIP-trunk number (ElevenLabs supports it on native Twilio numbers only). *Default:* conference transfer without a whisper; the summary goes to Slack and Notion.
+
 - **Business hours** for `config/greeting.yaml` and for "after hours". *Default:* Mon–Fri 09:00–17:30.
 - **Greeting, closing, emergency instruction** wording. *Default:* unchanged; TODO placeholders stay until approved; blocking for Phase 5. The discovery-call host and the call-logging notice (transcribed, not recorded) are settled — see Answered.
 - **Extraction:** the §6 fields now come from ElevenLabs post-call data collection rather than a separate LLM call. *Default:* yes (no extra model provider or key).

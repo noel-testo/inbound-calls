@@ -8,9 +8,9 @@ the dynamic-variable placeholders n8n's conversation-init webhook fills, and per
 webhook to override first_message and ASR keywords, the per-line dynamic variables
 (config/lines.yaml) and, when NOEL_MOBILE_E164 is set, the transfer_to_number tool for Noel's
 direct line. Voice, greeting and privacy are not changed on an existing agent, and the system prompt
-only with --sync-prompt. Then imports the Telnyx DID (default +442045200783) and every other number a line is matched on in config/lines.yaml (the parking
-line) as SIP-trunk numbers bound to the agent. The trunk is authenticated by Telnyx's signalling
-source IPs.
+only with --sync-prompt. Then imports the Telnyx DID (default +442045200783) and every other
+number a line is matched on in config/lines.yaml (the parking line) as SIP-trunk numbers bound to
+the agent. The trunk is authenticated by Telnyx's signalling source IPs.
 
     uv run python scripts/provision_elevenlabs.py --dry-run   # print the requests, no API calls
     uv run python scripts/provision_elevenlabs.py --apply     # apply (needs ELEVENLABS_API_KEY)

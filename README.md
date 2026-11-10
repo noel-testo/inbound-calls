@@ -8,9 +8,11 @@ ControlFreq's AI receptionist, **Cody**. Answers after-hours and unanswered call
 - `docs/QUESTIONS.md` — open questions, batched for Noel
 - `docs/DECISIONS.md` — architecture decisions and version pins
 - `docs/STATUS.md` — current phase, done, next, blocked
-- `config/` — greeting, prompt, scoring rules, terms (editable without code changes)
+- `config/` — greeting, prompt, line map (`lines.yaml`, per-line greeting and prompt), scoring rules, terms (editable without code changes)
 - `agent/` — the HTTPS webhook service for Cody's three Cal.com tools
 - `infra/docker-compose.yml` — the host stack
+
+Cody behaves by line (`config/lines.yaml`): Noel's direct line is screened and transferred to his mobile, the parking line has its own greeting and tags, and any other number gets the general behaviour.
 
 Stack: RingCentral (office PBX, diverts after-hours / no-answer) → Telnyx (SIP trunk + London 020 DID `+442045200783`) → **ElevenLabs Agents** (the voice loop). At call start **n8n** looks the caller up by phone in the Notion "Cody leads" database; mid-call a small HTTPS webhook service we host checks Noel Sesto's Cal.com availability, books the discovery call and takes messages; after the call n8n writes a Notion lead row and transcript for every call, and — for qualified callers only — Apollo records and a Slack alert. No database of our own, no HubSpot, no audio recording.
 

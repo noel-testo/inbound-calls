@@ -2,6 +2,52 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-10 — Line-aware Cody: one line map, tags everywhere (Noel, issue #13)
+
+- **Cody behaves by line.** `config/lines.yaml` maps a call to a line from `system__called_number`
+  and `system__caller_id` (both compared as E.164). Lines: `noel-direct`, `sales`, `accounts`,
+  `support`, `parking`, `general` (the default, today's behaviour for any other number). The line
+  `key` is the tag in Notion ("Line" select on both databases), Slack and Cal.com.
+- **Why the CLI picks the line on the 020.** RingCentral presents the dialled DDI as the CLI, so on
+  `+442045200783` the CLI says which RC line was called (`02081584403` is Noel's direct DDI) and the
+  real caller's number is lost. Those lines are marked `caller_id_is_caller: false`: no Notion
+  caller lookup, `caller_phone` blank, the CLI never used as a Cal.com attendee phone, and Cody
+  always asks for a call-back number (new extraction field `callback_number`, Notion "Callback
+  number"). The parking number goes straight to Telnyx, so its CLI is the real caller.
+- **Placeholders are inert.** The RC sales/accounts/support lines list `caller_ids: []`; a listed but
+  empty matcher means the line never matches, so those calls fall through to `general` until Noel's
+  numbers are added.
+- **How it reaches ElevenLabs.** One system prompt (`config/prompt.md`) with a "This line" section
+  filled from dynamic variables `line_key`, `line_label`, `line_instructions` (the per-line text in
+  `config/prompt_lines.md`); the line's greeting (`line_greetings` in `config/greeting.yaml`) goes
+  out as `first_message`. n8n's conversation-init gets all of it from one new endpoint,
+  `POST /lines/resolve` on the existing webhook service (X-Cody-Secret), so the line map is written
+  once, in this repo, and tested. This adds an endpoint, not a service. If the Python service is
+  dropped in favour of n8n's "Cody – Tools" workflow, that workflow takes over `/lines/resolve` too,
+  or the map is ported to n8n by hand.
+- **Noel direct is screened, then transferred.** Cody asks name, company, reason and a call-back
+  number, then calls ElevenLabs `transfer_to_number` to Noel's mobile. The number is read from
+  `NOEL_MOBILE_E164` by `provision_elevenlabs.py` and sent to ElevenLabs; it is not in the repo,
+  config or dry-run output. Transfer type `conference` (set in `lines.yaml`). On no answer Cody takes
+  a message as usual; the row is tagged `noel-direct`. New Notion outcome `transferred`.
+  Limitation: ElevenLabs' warm-transfer whisper (`agent_message`) only works on numbers imported
+  through the native Twilio integration; our Telnyx SIP-trunk number cannot whisper. Noel hears the
+  call connect with no spoken summary, and the summary is in Slack and Notion after the call.
+- **Parking bookings: title prefix plus metadata, not a separate event type.** Same Cal.com event
+  (7747197), title "[Parking] Discovery call with Noel Sesto, Technical Director – <organisation>",
+  and `metadata.line = "parking"` on the booking. Cleaner because it needs nothing new in Cal.com,
+  keeps one availability calendar for Noel (a second event type would need its own availability and
+  calendar-conflict settings), is visible in the calendar invite and the Cal.com list, and the
+  metadata is machine-readable for n8n. A separate event type is worth it only if parking needs a
+  different duration, questions or confirmation email; the line map is the place to add an event
+  id then.
+- **Provisioning scope.** `provision_elevenlabs.py` now also sets the line placeholders, the transfer
+  tool (only when `NOEL_MOBILE_E164` is set) and, with the new opt-in `--sync-prompt`, replaces an
+  existing agent's system prompt from `config/` (without it the live prompt keeps no "This line"
+  section). Both provisioning scripts take their DIDs from `lines.yaml`, so the parking number is
+  imported and assigned alongside the 020 number. Outbound calling on the trunk is not provisioned
+  yet: see `infra/telnyx/README.md`.
+
 ## 2026-11-03 — Neon dropped; n8n owns caller lookup and post-call; n8n replaces Windmill (Noel)
 
 - **Neon is removed from inbound-calls.** Cody's returning-caller lookup and all call logging run in

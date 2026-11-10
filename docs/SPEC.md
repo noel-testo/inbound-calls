@@ -84,6 +84,7 @@ agent/            webhook service (FastAPI), no state
   calcom/         Cal.com v2 client: availability + booking
   extraction.py   §6 schema ↔ ElevenLabs data collection
   prompt.py       fills the host name and deflections into config/prompt.md (provisioning)
+  lines.py        which line a call came in on (config/lines.yaml) and its greeting, prompt section, variables
   notion/         thin Notion client + the two database schemas (provisioning)
   scoring.py, apollo/, slack.py   no longer called since post-call moved to n8n (QUESTIONS)
   Dockerfile
@@ -94,7 +95,7 @@ infra/
   elevenlabs/       agent config notes: webhooks, tools, privacy
   caddy/            Caddyfile (TLS for the webhook service)
 config/
-  prompt.md, scoring.yaml, terms.yaml, greeting.yaml
+  prompt.md, prompt_lines.md, lines.yaml, scoring.yaml, terms.yaml, greeting.yaml
 scripts/
   provision_telnyx.py, provision_elevenlabs.py, provision_notion.py
 tests/
@@ -108,6 +109,7 @@ The n8n workflows live in n8n, not in this repo.
 A state machine executed by the LLM under the prompt and enforced by tool availability per state.
 
 1. **Greeting** — from `config/greeting.yaml`: the assistant's name (**Cody**), business name, that this is an AI assistant, and a call-logging notice (the call is transcribed and logged; no audio recording — §8). Wording is Noel's (§13). Delivered as the ElevenLabs agent's `first_message` via the conversation-init webhook — fixed text, not generated.
+1a. **Line** — n8n's conversation-init asks `POST /lines/resolve` which line the call came in on (`system__called_number`, `system__caller_id`; `config/lines.yaml`) and returns that line's greeting and variables. Noel's direct line is screened and transferred to his mobile; the RC lines and parking get their own greeting and tag; any other number is unchanged.
 2. **Identify** — n8n's conversation-init webhook looks up `caller_id` (E.164) in the "Cody leads" Phone field before the greeting. Known caller → greet by name; intent defaults to `existing_customer` if they are a known customer, but is confirmed in one question. Unknown or withheld CLI → ask who is calling and the organisation.
 3. **Intent** — one open question ("How can I help?"), classified into the four intents. Ambiguous → one clarifying question, then `other`.
 4. **Branch**
@@ -238,6 +240,7 @@ Other async work in n8n: the existing **RingCentral missed-call alert**, and a n
 
 - `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice: calls are transcribed, not recorded), `closing`, `silence_prompt`, `emergency_instruction` (closing and the emergency line are still for Noel to approve), `expert_name` (Noel Sesto), `expert_title` (our Technical Director), `business_hours`. Deflections that name the host use `{expert_name}` and `{expert_title}` so the name is written once.
 - `config/prompt.md` — the system prompt template. `agent/prompt.py` fills `{{expert_name}}`, `{{expert_title}}` and `{{deflections.*}}` from the greeting file. Per-call variables stay for ElevenLabs.
+- `config/lines.yaml` — the line map (issue #13): which dialled number and CLI mean which line (Noel direct, RC sales/accounts/support, parking, general), whether the CLI is the caller's, whether the line screens and transfers, and the Cal.com title prefix. `config/greeting.yaml` `line_greetings` and `config/prompt_lines.md` hold the per-line greeting and prompt section. See DECISIONS 2026-11-10.
 - `config/scoring.yaml` — weights and threshold.
 - `config/terms.yaml` — STT key terms with categories.
 
