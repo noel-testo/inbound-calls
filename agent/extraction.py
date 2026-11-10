@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent.phone import to_e164
+
 INTENTS = ("new_enquiry", "existing_customer", "supplier_or_sales", "other")
+PARTNERS = ("justpark",)
 
 
 @dataclass(frozen=True)
@@ -24,6 +27,11 @@ FIELDS: dict[str, Field] = {
     "intent": Field("string", "Why the caller rang.", INTENTS),
     "caller_name": Field("string", "The caller's full name as they gave it, or empty."),
     "organisation": Field("string", "The organisation the caller represents, or empty."),
+    "partner": Field(
+        "string",
+        "justpark when the caller is from JustPark, including JustPark driver support. "
+        "Otherwise empty.",
+    ),
     "caller_role": Field(
         "string",
         "The caller's role.",
@@ -79,6 +87,19 @@ FIELDS: dict[str, Field] = {
     "contact_email": Field(
         "string", "The email address the caller confirmed on read-back, or empty."
     ),
+    "callback_number": Field(
+        "string",
+        "The call-back number the caller gave, as digits, or empty. On the RingCentral lines the "
+        "number the call came from is not the caller's, so this is their only number.",
+    ),
+    "cold_call_declined": Field(
+        "boolean",
+        "True only on Noel's direct line, when the call was clearly an unsolicited sales call "
+        "(a sales pitch, lead generation, SEO, an energy broker or a marketing list) and Cody "
+        "ended it without transferring or taking a message. False when the call was transferred, "
+        "a message was taken, or it was not clearly a sales call. When this is true, the call's "
+        "outcome is cold_call_declined.",
+    ),
     "notes": Field("string", "Anything else material, one short paragraph."),
 }
 
@@ -124,6 +145,11 @@ def parse(results: dict | None) -> dict:
                 "other" if key == "intent" else ("unknown" if "unknown" in f.values else None)
             )
             out[key] = v if v in f.values else fallback
+        elif f.type == "boolean":
+            if isinstance(raw, bool):
+                out[key] = raw
+            else:
+                out[key] = (_clean_str(raw) or "").lower() in {"true", "yes", "1"}
         elif f.type == "integer":
             try:
                 n = int(float(raw))
@@ -132,6 +158,10 @@ def parse(results: dict | None) -> dict:
             out[key] = max(n, 0) or None
         else:
             out[key] = _clean_str(raw)
+    partner = (out.get("partner") or "").lower()
+    out["partner"] = "justpark" if partner == "justpark" else None
+    if out.get("callback_number"):
+        out["callback_number"] = to_e164(out["callback_number"]) or out["callback_number"]
     if out.get("contact_email"):
         email = out["contact_email"].replace(" ", "").lower()
         out["contact_email"] = email if "@" in email and "." in email.split("@")[-1] else None

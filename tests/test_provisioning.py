@@ -59,6 +59,13 @@ def test_discovery_host_is_named_once_and_privacy_line_unchanged():
     assert "but Noel Sesto, our Technical Director, can on the discovery call." in rendered
     assert "book a call with Noel Sesto, our Technical Director." in rendered
     assert "{{expert_name}}" not in rendered and "{{deflections." not in rendered
+    assert "Monday to Friday 08:00 to 18:00" in rendered
+    assert "Saturday 09:00 to 17:00" in rendered
+    assert "Sunday 10:00 to 16:00 (Europe/London)" in rendered
+    assert "Thanks for calling ControlFreq. Goodbye." in rendered
+    assert "Please hold while I try to put you through." in rendered
+    assert "{{business_hours}}" not in rendered and "{{closing}}" not in rendered
+    assert "emergency instruction" not in rendered.lower()
     first = load("provision_elevenlabs")._first_message()
     assert "Calls may be transcribed for quality and training purposes." in first
     assert "recorded" not in first.lower()

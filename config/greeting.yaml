@@ -8,24 +8,39 @@ expert_title: "our Technical Director"
 
 business_hours:
   timezone: Europe/London
-  weekdays: "TODO 09:00-17:30"
-  saturday: closed
-  sunday: closed
+  weekdays: "08:00-18:00"   # Monday to Friday
+  saturday: "09:00-17:00"
+  sunday: "10:00-16:00"
 
 greeting: >
   Thanks for calling ControlFreq. Calls may be transcribed for quality and training purposes. I'm Cody,
   an AI assistant trained to answer anything related to ControlFreq. Please tell me what you're looking
   for and I'll direct your call.
 
+# Per-line greetings (config/lines.yaml), delivered as `first_message` by the conversation-init
+# webhook. A line with no entry here, and the default line, use `greeting` above. All five line
+# greetings below are approved by Noel (2026-11-10) and spoken exactly as written.
+line_greetings:
+  noel-direct: "Thanks for calling Noel Sesto at ControlFreq. I'm Cody, Noel's AI assistant. This call will be transcribed. Let me try and put you through. Who's calling, please, and what's the nature of the call?"
+  sales: >
+    Thanks for calling ControlFreq sales. Calls may be transcribed for quality and training purposes.
+    I'm Cody, an AI assistant. Please tell me what you're looking for and I'll direct your call.
+  accounts: >
+    Thanks for calling ControlFreq accounts. Calls may be transcribed for quality and training
+    purposes. I'm Cody, an AI assistant. Please tell me what your call is about and I'll pass it on.
+  support: >
+    Thanks for calling ControlFreq support. Calls may be transcribed for quality and training
+    purposes. I'm Cody, an AI assistant. Please tell me what the problem is and I'll pass it on.
+  parking: >
+    Thanks for calling ControlFreq about car park solutions. Calls may be transcribed for quality
+    and training purposes. I'm Cody, an AI assistant. Please tell me what you're looking for and
+    I'll direct your call.
+
 silence_prompt: "Are you still there?"
 
-closing: >
-  TODO — Thanks for calling ControlFreq. Goodbye.
+closing: "Thanks for calling ControlFreq. Goodbye."
 
-# Spoken verbatim, first, when a caller describes an active emergency (for example someone trapped
-# in a lift or an alarm not reporting right now). Must be written by Noel: it may need to direct the
-# caller to a specific emergency line or service.
-emergency_instruction: "TODO"
+# There is no emergency script (Noel, 2026-11-10). Cody does not treat an emergency as a cold call.
 
 # One-line deflections (§5.1). Spoken as written.
 deflections:

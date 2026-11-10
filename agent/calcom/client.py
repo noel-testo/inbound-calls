@@ -32,6 +32,11 @@ USER_AGENT = "ControlFreqReceptionist/1.0"
 DISCOVERY_TITLE = "Discovery call with Noel Sesto, Technical Director – {organisation}"
 
 
+def discovery_title(organisation: str, prefix: str = "") -> str:
+    """The booking title, with an optional line prefix such as "[Parking] "."""
+    return prefix + DISCOVERY_TITLE.format(organisation=organisation)
+
+
 def _parse(iso: str) -> datetime:
     dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
@@ -148,6 +153,7 @@ class CalComClient:
         phone: str | None = None,
         notes: str | None = None,
         title: str | None = None,
+        metadata: dict[str, str] | None = None,
         timezone_name: str = "Europe/London",
         timeout: float | None = None,
     ) -> dict:
@@ -156,7 +162,8 @@ class CalComClient:
 
         `organisation` is required (the `Company` booking field is required); `title`
         (required, hidden) defaults to "Discovery call with Noel Sesto, Technical
-        Director – <organisation>"; `notes` carries the qualification summary.
+        Director – <organisation>"; `notes` carries the qualification summary. `metadata` is
+        stored on the booking as-is (Cody sends {"line": "<line key>"}).
         `phone` is required for event 7747197 (`attendeePhoneNumber` is a required,
         validated field) — pass the caller's CLI. `notes` is the "Enquiry details"
         question.
@@ -177,6 +184,8 @@ class CalComClient:
             "attendee": attendee,
             "bookingFieldsResponses": responses,
         }
+        if metadata:
+            payload["metadata"] = metadata
         body = await self._request(
             "POST", "/v2/bookings", BOOKINGS_VERSION, json=payload, timeout=timeout
         )

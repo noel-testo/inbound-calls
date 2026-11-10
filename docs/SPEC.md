@@ -23,7 +23,7 @@ Reference points reverse-engineered for this build: Cyberstaff (call-forwarding 
 3. **There is no Cody-owned database.** **Notion is the review surface and the record of every call** (one lead row and one transcript row per call), and the "Cody leads" **Phone** field (`+44` E.164) is the **caller directory** the call-start lookup needs, because Apollo cannot search by phone. **Apollo is the sales record** for qualified callers (contact, account, call record, deal, follow-up task).
 4. **The voice loop is ElevenLabs.** STT, LLM, TTS and turn-taking are all hosted by ElevenLabs Agents (no `agent/providers/`, no local VAD/STT/TTS). A custom LLM endpoint is possible later via ElevenLabs' custom-LLM setting if we want to own the model (§15).
 5. **No GPU, no inference on the host** in the MVP. Post-call extraction is ElevenLabs data collection (§6), not a separate LLM call.
-6. **Nothing a caller hears is invented.** Greeting, disclosures, emergency wording, hours, product claims and pricing come from `config/`. Missing values are questions.
+6. **Nothing a caller hears is invented.** Greeting, disclosures, hours, product claims and pricing come from `config/`. Missing values are questions. There is no emergency script (DECISIONS 2026-11-10).
 7. **UK compliance by default.** AI disclosure and a call-logging notice in the greeting; transcript retention enforced by a scheduled job; **no audio recording** — ElevenLabs `record_voice: false` and the post-call "Send audio data" toggle off. Notion is the record; transcripts are also processed by and stored at ElevenLabs for **30 days** (`retention_days: 30`), and a transcript + summary is written to ControlFreq's Notion "Call transcripts" database (§11; rows kept 12 months). Qualified callers' details and the call summary go to Apollo.
 
 ## 3. Scope
@@ -84,6 +84,7 @@ agent/            webhook service (FastAPI), no state
   calcom/         Cal.com v2 client: availability + booking
   extraction.py   §6 schema ↔ ElevenLabs data collection
   prompt.py       fills the host name and deflections into config/prompt.md (provisioning)
+  lines.py        which line a call came in on (config/lines.yaml) and its greeting, prompt section, variables
   notion/         thin Notion client + the two database schemas (provisioning)
   scoring.py, apollo/, slack.py   no longer called since post-call moved to n8n (QUESTIONS)
   Dockerfile
@@ -94,7 +95,7 @@ infra/
   elevenlabs/       agent config notes: webhooks, tools, privacy
   caddy/            Caddyfile (TLS for the webhook service)
 config/
-  prompt.md, scoring.yaml, terms.yaml, greeting.yaml
+  prompt.md, prompt_lines.md, lines.yaml, scoring.yaml, terms.yaml, greeting.yaml
 scripts/
   provision_telnyx.py, provision_elevenlabs.py, provision_notion.py
 tests/
@@ -108,11 +109,12 @@ The n8n workflows live in n8n, not in this repo.
 A state machine executed by the LLM under the prompt and enforced by tool availability per state.
 
 1. **Greeting** — from `config/greeting.yaml`: the assistant's name (**Cody**), business name, that this is an AI assistant, and a call-logging notice (the call is transcribed and logged; no audio recording — §8). Wording is Noel's (§13). Delivered as the ElevenLabs agent's `first_message` via the conversation-init webhook — fixed text, not generated.
+1a. **Line** — n8n's conversation-init asks `POST /lines/resolve` which line the call came in on (`system__called_number`, `system__caller_id`; `config/lines.yaml`) and returns that line's greeting and variables. Noel's direct line is screened and transferred to his mobile; the RC lines and parking get their own greeting and tag; any other number is unchanged. A caller from JustPark is transferred to the same mobile on every line (DECISIONS 2026-11-10).
 2. **Identify** — n8n's conversation-init webhook looks up `caller_id` (E.164) in the "Cody leads" Phone field before the greeting. Known caller → greet by name; intent defaults to `existing_customer` if they are a known customer, but is confirmed in one question. Unknown or withheld CLI → ask who is calling and the organisation.
 3. **Intent** — one open question ("How can I help?"), classified into the four intents. Ambiguous → one clarifying question, then `other`.
 4. **Branch**
    - `new_enquiry` → **Qualify** (§6, conversationally, not as a form; at most one question per turn; skip anything already said) → if high value: offer a 15-minute discovery call with Noel Sesto, our Technical Director, `check_availability`, offer two slots, `book_meeting`, read back date, time, that it is with Noel Sesto, name and email → close. If not high value: capture organisation, name, email, requirement; say the team will email information; `take_message(category=enquiry)` → close.
-   - `existing_customer` → ask site, issue, urgency, best callback number; `take_message(category=support)`. If the caller describes an active emergency, say `emergency_instruction` from `config/greeting.yaml` verbatim first, then take details → close.
+   - `existing_customer` → ask site, issue, urgency, best callback number; `take_message(category=support)`. There is no emergency script. An emergency is not treated as a cold sales call.
    - `supplier_or_sales` → name, company, purpose, email; `take_message(category=supplier)`; no booking, no transfer → close politely.
    - `other` → `take_message(category=other)` → close.
 5. **Close** — summarise what will happen next in one sentence, thank, `end_call`.
@@ -189,7 +191,7 @@ None of our own (Neon dropped 2026-11-03). Notion holds the call record and the 
 Runs in **n8n** after it acknowledges ElevenLabs' post-call webhook:
 
 1. `extract` + `score` — parse data collection (§6); score; `high_value` = qualified.
-2. `outcome` — `discovery_booked` (a booking was made), `max_duration`, `qualified_not_booked`, `support_message` / `supplier_logged` / `message_taken` (a `take_message` call), `abandoned` (caller never spoke) or `no_action`.
+2. `outcome` — `discovery_booked` (a booking was made), `max_duration`, `qualified_not_booked`, `support_message` / `supplier_logged` / `message_taken` (a `take_message` call), `transferred` (Noel's direct line, put through), `cold_call_declined` (Noel's direct line, an obvious unsolicited sales call: no transfer, no message), `abandoned` (caller never spoke) or `no_action`.
 3. `notion_transcript` — "Call transcripts" row: date, caller, company, outcome, summary; the full transcript in the page body.
 4. `notion_lead` — "Cody leads" row (schema below), for every call; any message taken is added to its Summary. Its Phone field is what the next call's lookup finds.
 5. `apollo` — §9, qualified only; then the lead row is updated with the Apollo links.
@@ -236,8 +238,9 @@ Other async work in n8n: the existing **RingCentral missed-call alert**, and a n
 
 ## 13. Config files
 
-- `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice: calls are transcribed, not recorded), `closing`, `silence_prompt`, `emergency_instruction` (closing and the emergency line are still for Noel to approve), `expert_name` (Noel Sesto), `expert_title` (our Technical Director), `business_hours`. Deflections that name the host use `{expert_name}` and `{expert_title}` so the name is written once.
+- `config/greeting.yaml` — `business_name`, `greeting` (fixed spoken text with AI disclosure and a call-logging notice: calls are transcribed, not recorded), `closing` ("Thanks for calling ControlFreq. Goodbye."), `silence_prompt`, `expert_name` (Noel Sesto), `expert_title` (our Technical Director), `business_hours` (Monday to Friday 08:00–18:00, Saturday 09:00–17:00, Sunday 10:00–16:00, Europe/London). There is no emergency script. Deflections that name the host use `{expert_name}` and `{expert_title}` so the name is written once. `agent/prompt.py` fills `{{business_hours}}` and `{{closing}}` from this file.
 - `config/prompt.md` — the system prompt template. `agent/prompt.py` fills `{{expert_name}}`, `{{expert_title}}` and `{{deflections.*}}` from the greeting file. Per-call variables stay for ElevenLabs.
+- `config/lines.yaml` — the line map (issue #13): which dialled number and CLI mean which line (Noel direct, RC sales/accounts/support, parking, general), whether the CLI is the caller's, whether the line screens and transfers, and the Cal.com title prefix. `config/greeting.yaml` `line_greetings` and `config/prompt_lines.md` hold the per-line greeting and prompt section. See DECISIONS 2026-11-10.
 - `config/scoring.yaml` — weights and threshold.
 - `config/terms.yaml` — STT key terms with categories.
 

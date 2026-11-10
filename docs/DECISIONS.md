@@ -2,6 +2,102 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-10 — Hours, closing line, no emergency script, JustPark transfer (Noel)
+
+- **Hours** (Europe/London): Monday to Friday 08:00–18:00, Saturday 09:00–17:00, Sunday 10:00–16:00.
+  Sunday is open, not closed. `agent/prompt.py` fills `{{business_hours}}` from `config/greeting.yaml`.
+- **Closing line,** spoken exactly: "Thanks for calling ControlFreq. Goodbye." Filled into the prompt
+  from `closing` in the same file.
+- **No emergency script.** `emergency_instruction` is deleted, and the prompt steps that told Cody to
+  speak it are gone, including the old noel-direct step. An emergency is not a cold sales call, so
+  on Noel's direct line it is screened and transferred like any other genuine call.
+- **JustPark, on every line.** JustPark driver support, or anyone at JustPark, skips the cold-call
+  check and the enquiry questions. Cody takes a name and a call-back number if they are given
+  quickly, says "Please hold while I try to put you through." and calls `transfer_to_number` to
+  `NOEL_MOBILE_E164` (the same destination and tool as Noel direct; if that variable is unset the
+  tool is not provisioned, so there is no transfer). If the transfer fails or is not answered, Cody
+  takes a message at high urgency and says "We'll call you back as soon as practically possible."
+  The call is tagged `partner=justpark`: a data-collection field, a Notion "Partner" select on both
+  databases, and "JustPark" on the Slack line.
+
+## 2026-11-10 — Noel direct greeting approved (Noel)
+
+- `line_greetings.noel-direct` is spoken exactly: "Thanks for calling Noel Sesto at ControlFreq. I'm
+  Cody, Noel's AI assistant. This call will be transcribed. Let me try and put you through. Who's
+  calling, please, and what's the nature of the call?" The greeting already asks for the name and
+  the reason, so Cody then asks only for whichever of name, company and reason is still missing.
+- There is no whisper on a Telnyx transfer, so the noel-direct prompt no longer tells Cody to
+  summarise the call to the person who answers. Name, company and reason go to Slack and Notion
+  after the call. The sales, accounts, support and parking greetings were approved the same day
+  (see QUESTIONS, Answered).
+
+## 2026-11-10 — RingCentral sales, accounts and support numbers (Noel)
+
+- The three DDIs are in `config/lines.yaml`: sales `+442034780784`, accounts `+442034780785`,
+  support `+442034780786`. Each arrives on `+442045200783` with RingCentral presenting that DDI as
+  the CLI, matched the same way as Noel direct (`+442081584403`). National and E.164 forms compare
+  equal. `caller_id_is_caller` stays false, so Cody asks for a call-back number and does not look
+  the CLI up.
+
+## 2026-11-10 — Cold sales calls on Noel's direct line are declined (Noel)
+
+- On `noel-direct`, a call that is clearly an unsolicited sales pitch (lead generation, SEO, energy
+  brokers, marketing lists and the like) is not transferred and no message is taken. Cody says
+  "Noel doesn't take unsolicited sales calls. Thank you for calling." and ends the call.
+- If Cody is not sure, the call is screened and transferred as usual. The transfer tool's condition
+  in `config/lines.yaml` says the same.
+- The call is logged with outcome `cold_call_declined` (Notion "Outcome", on both databases) and
+  Line `noel-direct`. ElevenLabs data collection reports it as `cold_call_declined` (boolean, in
+  `agent/extraction.py`); n8n sets the outcome from that and posts one quiet Slack line, with no
+  call-back. It is not a lead: no Apollo record.
+
+## 2026-11-10 — Line-aware Cody: one line map, tags everywhere (Noel, issue #13)
+
+- **Cody behaves by line.** `config/lines.yaml` maps a call to a line from `system__called_number`
+  and `system__caller_id` (both compared as E.164). Lines: `noel-direct`, `sales`, `accounts`,
+  `support`, `parking`, `general` (the default, today's behaviour for any other number). The line
+  `key` is the tag in Notion ("Line" select on both databases), Slack and Cal.com.
+- **Why the CLI picks the line on the 020.** RingCentral presents the dialled DDI as the CLI, so on
+  `+442045200783` the CLI says which RC line was called (`02081584403` is Noel's direct DDI) and the
+  real caller's number is lost. Those lines are marked `caller_id_is_caller: false`: no Notion
+  caller lookup, `caller_phone` blank, the CLI never used as a Cal.com attendee phone, and Cody
+  asks for a call-back number (new extraction field `callback_number`, Notion "Callback number"),
+  except an obvious cold sales call, which is declined (see the entry above). The parking number
+  goes straight to Telnyx, so its CLI is the real caller.
+- **An empty matcher never matches.** A line that lists `caller_ids: []` (or no numbers at all)
+  never matches, so a half-filled line falls through to `general`. The sales, accounts and support
+  lines were written that way and filled the same day (see the entry above).
+- **How it reaches ElevenLabs.** One system prompt (`config/prompt.md`) with a "This line" section
+  filled from dynamic variables `line_key`, `line_label`, `line_instructions` (the per-line text in
+  `config/prompt_lines.md`); the line's greeting (`line_greetings` in `config/greeting.yaml`) goes
+  out as `first_message`. n8n's conversation-init gets all of it from one new endpoint,
+  `POST /lines/resolve` on the existing webhook service (X-Cody-Secret), so the line map is written
+  once, in this repo, and tested. This adds an endpoint, not a service. If the Python service is
+  dropped in favour of n8n's "Cody – Tools" workflow, that workflow takes over `/lines/resolve` too,
+  or the map is ported to n8n by hand.
+- **Noel direct is screened, then transferred.** Cody asks name, company, reason and a call-back
+  number, then calls ElevenLabs `transfer_to_number` to Noel's mobile. The number is read from
+  `NOEL_MOBILE_E164` by `provision_elevenlabs.py` and sent to ElevenLabs; it is not in the repo,
+  config or dry-run output. Transfer type `conference` (set in `lines.yaml`). On no answer Cody takes
+  a message as usual; the row is tagged `noel-direct`. New Notion outcome `transferred`.
+  Limitation: ElevenLabs' warm-transfer whisper (`agent_message`) only works on numbers imported
+  through the native Twilio integration; our Telnyx SIP-trunk number cannot whisper. Noel hears the
+  call connect with no spoken summary, and the summary is in Slack and Notion after the call.
+- **Parking bookings: title prefix plus metadata, not a separate event type.** Same Cal.com event
+  (7747197), title "[Parking] Discovery call with Noel Sesto, Technical Director – <organisation>",
+  and `metadata.line = "parking"` on the booking. Cleaner because it needs nothing new in Cal.com,
+  keeps one availability calendar for Noel (a second event type would need its own availability and
+  calendar-conflict settings), is visible in the calendar invite and the Cal.com list, and the
+  metadata is machine-readable for n8n. A separate event type is worth it only if parking needs a
+  different duration, questions or confirmation email; the line map is the place to add an event
+  id then.
+- **Provisioning scope.** `provision_elevenlabs.py` now also sets the line placeholders, the transfer
+  tool (only when `NOEL_MOBILE_E164` is set) and, with the new opt-in `--sync-prompt`, replaces an
+  existing agent's system prompt from `config/` (without it the live prompt keeps no "This line"
+  section). Both provisioning scripts take their DIDs from `lines.yaml`, so the parking number is
+  imported and assigned alongside the 020 number. Outbound calling on the trunk is not provisioned
+  yet: see `infra/telnyx/README.md`.
+
 ## 2026-11-03 — Neon dropped; n8n owns caller lookup and post-call; n8n replaces Windmill (Noel)
 
 - **Neon is removed from inbound-calls.** Cody's returning-caller lookup and all call logging run in

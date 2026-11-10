@@ -4,6 +4,7 @@
 **Last updated:** 2026-11-03
 
 ## Done
+- **Line-aware Cody (issue #13, branch `cursor/line-aware-cody-e93a`, PR open)** — see DECISIONS 2026-11-10. Line map in `config/lines.yaml`, `POST /lines/resolve`, per-line greeting and prompt, Notion "Line" select, parking booking tags, Noel-direct transfer tool in `provision_elevenlabs.py`. Nothing was applied to ElevenLabs, Telnyx or Notion. The RC sales, accounts and support DDIs are in `config/lines.yaml`. Still to do by hand: the n8n changes (infra/elevenlabs/README.md), outbound calling on the trunk, and `NOEL_MOBILE_E164`.
 - **Neon dropped (2026-11-03, branch `remove-neon`)** — see DECISIONS 2026-11-03. Removed `agent/store/`, `db/`, the Neon preview-branch workflow, `seed_config.py`, `replay_post_call.py`, conversation-init, post-call, `asyncpg`, `DATABASE_URL` and the Windmill containers. The service is now the three Cal.com tools with no state; `take_message` returns a `message_id` only.
 - **Phase 0 scaffold** — repo layout, `uv` project, pinned images, Neon project "Inbound Calls" (`wandering-union-75946614`, London, `production` branch), `receptionist` migrated and seeded (2026-10-04), Neon preview branch per PR in CI. *(Neon dropped 2026-11-03.)*
 - **Phase 1 — Cal.com** — `agent/calcom/` (availability + booking). Live booking verified 2026-10-05 on event 7103844. Cody now books event 7747197 (`control-freq-discovery`); 7103844 stays LiftPulse. The HubSpot half of Phase 1 was removed on 2026-11-02.
@@ -51,6 +52,7 @@ ElevenLabs hosts the voice and n8n runs caller lookup and post-call, so the host
 - [ ] n8n conversation-init and post-call flows active and tested; RingCentral missed-call alert still working in n8n
 - [ ] RingCentral after-hours rule → `+442045200783`
 - [ ] RingCentral no-answer forwarding → `+442045200783`
+- [ ] Line test calls 22-30 pass (Noel direct, parking, generic, cold sales declined, JustPark)
 - [ ] Old 0330 number removed from ElevenLabs
 - [ ] Once the test calls work: Neon project, GitHub `NEON_API_KEY` secret and `NEON_PROJECT_ID` variable removed
 - [ ] Two-week after-hours review period scheduled
