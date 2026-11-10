@@ -18,14 +18,10 @@ greeting: >
   for and I'll direct your call.
 
 # Per-line greetings (config/lines.yaml), delivered as `first_message` by the conversation-init
-# webhook. A line with no entry here, and the default line, use `greeting` above. Everything below is
-# PROPOSED wording: NOEL must approve each one before the line goes live. Each keeps the AI
-# disclosure and the call-logging notice.
+# webhook. A line with no entry here, and the default line, use `greeting` above. noel-direct is
+# approved (Noel, 2026-11-10) and spoken exactly as written. The others are still proposals.
 line_greetings:
-  noel-direct: >
-    Thanks for calling Noel Sesto at ControlFreq. Calls may be transcribed for quality and training
-    purposes. I'm Cody, an AI assistant. I'll take a few details and try to put you through to Noel.
-    Who's calling, please?
+  noel-direct: "Thanks for calling Noel Sesto at ControlFreq. I'm Cody, Noel's AI assistant. This call will be transcribed. Let me try and put you through. Who's calling, please, and what's the nature of the call?"
   sales: >
     Thanks for calling ControlFreq sales. Calls may be transcribed for quality and training purposes.
     I'm Cody, an AI assistant. Please tell me what you're looking for and I'll direct your call.

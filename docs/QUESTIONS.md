@@ -5,7 +5,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Open
 
-- **Line wording (issue #13):** the per-line greetings in `config/greeting.yaml` (`line_greetings`) and the per-line prompt sections in `config/prompt_lines.md` are proposals. *Default:* as written; the parking section stays a placeholder until Noel approves the wording and supplies the parking training material.
+- **Line wording (issue #13):** the sales, accounts, support and parking greetings, and the per-line prompt sections in `config/prompt_lines.md`, are still proposals. The Noel direct greeting is approved (see Answered). *Default:* as written; the parking section stays a placeholder until Noel supplies the parking training material.
 - **Noel direct, voicemail:** a conference transfer to a mobile that goes to voicemail can put the caller through to the voicemail greeting. *Default:* none until tested (TEST-CALLS 24); the fix is to switch Noel's mobile voicemail off or shorten the ring time.
 - **Warm transfer whisper:** not available on a Telnyx SIP-trunk number (ElevenLabs supports it on native Twilio numbers only). *Default:* conference transfer without a whisper; the summary goes to Slack and Notion.
 
@@ -33,6 +33,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Answered
 
+- **Noel direct greeting:** approved 10 Nov 2026 and spoken exactly: "Thanks for calling Noel Sesto at ControlFreq. I'm Cody, Noel's AI assistant. This call will be transcribed. Let me try and put you through. Who's calling, please, and what's the nature of the call?" Cody then asks only for the name, company or reason the caller has not already given. A Telnyx transfer has no whisper, so Cody does not summarise the call to Noel as it connects. The summary goes to Slack and Notion. The other line greetings are still awaiting review. (2026-11-10)
 - **RC numbers (issue #13):** Noel sent the RingCentral DDIs on 10 Nov 2026. They forward to `+442045200783` and RC presents the dialled number as the CLI, same as Noel direct. Sales `+442034780784` (020 3478 0784), accounts `+442034780785` (020 3478 0785), support `+442034780786` (020 3478 0786). In `config/lines.yaml`. (2026-11-10)
 - **Noel direct, cold sales calls:** an obvious unsolicited sales call (a pitch, lead generation, SEO, an energy broker, a marketing list) is not put through. Cody says "Noel doesn't take unsolicited sales calls. Thank you for calling." and ends the call: no transfer, no message, no call-back. The call is logged with outcome `cold_call_declined` and Line `noel-direct`. If Cody is not sure, the call is screened and transferred as normal. (2026-11-10)
 - **Withheld numbers:** a caller with no CLI is treated as a new caller: `caller_known=false`, and the agent asks for their name and organisation. (2026-11-03)

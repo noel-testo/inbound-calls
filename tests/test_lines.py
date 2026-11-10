@@ -109,12 +109,22 @@ def test_line_flags_and_called_numbers():
     assert LINE_MAP.called_numbers == ("+442045200783", "+442045208242")
 
 
+NOEL_DIRECT_GREETING = (
+    "Thanks for calling Noel Sesto at ControlFreq. I'm Cody, Noel's AI assistant. "
+    "This call will be transcribed. Let me try and put you through. "
+    "Who's calling, please, and what's the nature of the call?"
+)
+
+
 def test_every_line_has_a_prompt_section_and_a_greeting_with_the_disclosures():
     for line in LINE_MAP.lines:
         assert SECTIONS.get(line.key), line.key
         spoken = lines.first_message(line, GREETING)
-        assert "Calls may be transcribed for quality and training purposes." in spoken
-        assert "I'm Cody, an AI assistant" in spoken
+        if line.key == "noel-direct":
+            assert spoken == NOEL_DIRECT_GREETING
+        else:
+            assert "Calls may be transcribed for quality and training purposes." in spoken
+            assert "I'm Cody, an AI assistant" in spoken
         assert "TODO" not in spoken and "\n" not in spoken
     assert set(GREETING["line_greetings"]) <= set(LINE_MAP.keys)
     assert lines.first_message(LINE_MAP.default, GREETING) == " ".join(GREETING["greeting"].split())
@@ -132,6 +142,8 @@ def test_prompt_sections_hold_no_comments_or_unfilled_wording():
     assert "Noel doesn't take unsolicited sales calls." in noel
     assert "When in doubt, transfer." in noel
     assert "do not take a message" in noel and "do not ask for a call-back number" in noel
+    assert "one-sentence summary" not in noel and "person receiving the call" not in noel
+    assert "only for what they have not already given" in noel
     for key in ("general", "sales", "accounts", "support", "parking"):
         assert "transfer_to_number" not in SECTIONS[key].replace("Do not transfer", "")
 
@@ -174,7 +186,7 @@ def test_resolve_endpoint_noel_direct_parking_and_generic():
         ).json()
     assert noel["line_tag"] == "noel-direct" and noel["screen_and_transfer"] is True
     assert noel["lookup_caller"] is False
-    assert noel["first_message"].startswith("Thanks for calling Noel Sesto at ControlFreq.")
+    assert noel["first_message"] == NOEL_DIRECT_GREETING
     assert parking["line_tag"] == "parking" and parking["lookup_caller"] is True
     assert parking["dynamic_variables"]["caller_phone"] == "+447400123456"
     assert "car park" in parking["first_message"]

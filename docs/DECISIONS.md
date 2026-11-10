@@ -2,6 +2,16 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-10 — Noel direct greeting approved (Noel)
+
+- `line_greetings.noel-direct` is spoken exactly: "Thanks for calling Noel Sesto at ControlFreq. I'm
+  Cody, Noel's AI assistant. This call will be transcribed. Let me try and put you through. Who's
+  calling, please, and what's the nature of the call?" The greeting already asks for the name and
+  the reason, so Cody then asks only for whichever of name, company and reason is still missing.
+- There is no whisper on a Telnyx transfer, so the noel-direct prompt no longer tells Cody to
+  summarise the call to the person who answers. Name, company and reason go to Slack and Notion
+  after the call. The other line greetings are still proposals.
+
 ## 2026-11-10 — RingCentral sales, accounts and support numbers (Noel)
 
 - The three DDIs are in `config/lines.yaml`: sales `+442034780784`, accounts `+442034780785`,
