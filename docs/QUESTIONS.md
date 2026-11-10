@@ -5,8 +5,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Open
 
-- **Line wording (issue #13):** the per-line greetings in `config/greeting.yaml` (`line_greetings`) and the per-line prompt sections in `config/prompt_lines.md` are proposals. *Default:* as written; the RC lines stay inert and the parking section stays a placeholder until Noel approves them and supplies the parking training material.
-- **RC numbers (issue #13):** the RingCentral sales, accounts and support DDIs for `config/lines.yaml`. *Default:* those lines never match, so their calls get the general greeting.
+- **Line wording (issue #13):** the per-line greetings in `config/greeting.yaml` (`line_greetings`) and the per-line prompt sections in `config/prompt_lines.md` are proposals. *Default:* as written; the parking section stays a placeholder until Noel approves the wording and supplies the parking training material.
 - **Noel direct, voicemail:** a conference transfer to a mobile that goes to voicemail can put the caller through to the voicemail greeting. *Default:* none until tested (TEST-CALLS 24); the fix is to switch Noel's mobile voicemail off or shorten the ring time.
 - **Warm transfer whisper:** not available on a Telnyx SIP-trunk number (ElevenLabs supports it on native Twilio numbers only). *Default:* conference transfer without a whisper; the summary goes to Slack and Notion.
 
@@ -34,6 +33,7 @@ questions are raised in the session immediately and recorded here afterwards.
 
 ## Answered
 
+- **RC numbers (issue #13):** Noel sent the RingCentral DDIs on 10 Nov 2026. They forward to `+442045200783` and RC presents the dialled number as the CLI, same as Noel direct. Sales `+442034780784` (020 3478 0784), accounts `+442034780785` (020 3478 0785), support `+442034780786` (020 3478 0786). In `config/lines.yaml`. (2026-11-10)
 - **Noel direct, cold sales calls:** an obvious unsolicited sales call (a pitch, lead generation, SEO, an energy broker, a marketing list) is not put through. Cody says "Noel doesn't take unsolicited sales calls. Thank you for calling." and ends the call: no transfer, no message, no call-back. The call is logged with outcome `cold_call_declined` and Line `noel-direct`. If Cody is not sure, the call is screened and transferred as normal. (2026-11-10)
 - **Withheld numbers:** a caller with no CLI is treated as a new caller: `caller_known=false`, and the agent asks for their name and organisation. (2026-11-03)
 - **Python tools service:** it will probably be dropped once n8n is tested; n8n's "Cody – Tools" workflow would then serve check_availability, book_meeting and take_message, and `agent/`, the host, Caddy and `WEBHOOK_DOMAIN` would go. Until then the Python Cal.com tools stay. (2026-11-03)

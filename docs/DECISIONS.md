@@ -2,6 +2,14 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-10 — RingCentral sales, accounts and support numbers (Noel)
+
+- The three DDIs are in `config/lines.yaml`: sales `+442034780784`, accounts `+442034780785`,
+  support `+442034780786`. Each arrives on `+442045200783` with RingCentral presenting that DDI as
+  the CLI, matched the same way as Noel direct (`+442081584403`). National and E.164 forms compare
+  equal. `caller_id_is_caller` stays false, so Cody asks for a call-back number and does not look
+  the CLI up.
+
 ## 2026-11-10 — Cold sales calls on Noel's direct line are declined (Noel)
 
 - On `noel-direct`, a call that is clearly an unsolicited sales pitch (lead generation, SEO, energy
@@ -27,9 +35,9 @@ Record every architecture decision and every pinned version here. One entry per 
   asks for a call-back number (new extraction field `callback_number`, Notion "Callback number"),
   except an obvious cold sales call, which is declined (see the entry above). The parking number
   goes straight to Telnyx, so its CLI is the real caller.
-- **Placeholders are inert.** The RC sales/accounts/support lines list `caller_ids: []`; a listed but
-  empty matcher means the line never matches, so those calls fall through to `general` until Noel's
-  numbers are added.
+- **An empty matcher never matches.** A line that lists `caller_ids: []` (or no numbers at all)
+  never matches, so a half-filled line falls through to `general`. The sales, accounts and support
+  lines were written that way and filled the same day (see the entry above).
 - **How it reaches ElevenLabs.** One system prompt (`config/prompt.md`) with a "This line" section
   filled from dynamic variables `line_key`, `line_label`, `line_instructions` (the per-line text in
   `config/prompt_lines.md`); the line's greeting (`line_greetings` in `config/greeting.yaml`) goes

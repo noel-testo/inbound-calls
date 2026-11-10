@@ -8,9 +8,8 @@
 # Matching: a line matches when every matcher it lists matches (called_numbers AND caller_ids);
 # numbers are compared in E.164, so `02081584403` and `+442081584403` are the same. The first line
 # that matches wins, so list specific lines first. A line with no numbers, or with a
-# matcher that is listed but still empty (`caller_ids: []`), never matches: that is how the
-# RingCentral placeholders below stay inert until Noel sends the numbers. Any call
-# that matches nothing gets `default`, today's generic behaviour.
+# matcher that is listed but still empty (`caller_ids: []`), never matches. Any call that matches
+# nothing gets `default`, today's generic behaviour.
 #
 # The spoken greeting per line is in greeting.yaml (`line_greetings`), the per-line prompt section
 # in prompt_lines.md. The `key` is the tag: it is the Notion "Line" select value, the Slack tag and
@@ -42,27 +41,27 @@ lines:
         call-back number have all been taken, and the call is not an unsolicited sales call.
         Never for a cold sales call, and never on any other line.
 
-  # TODO NOEL: set each RingCentral line to show its own number as the CLI, then fill in the
-  # DDI below. Until then these lines are inert (no numbers, so they never match).
+  # Same path as Noel direct: RC forwards to the 020 and presents the dialled DDI as the CLI,
+  # so the real caller's number is lost. Numbers given by Noel, 10 Nov 2026.
   - key: sales
     label: Sales line
     match:
       called_numbers: ["+442045200783"]
-      caller_ids: []                  # TODO RC sales DDI
+      caller_ids: ["+442034780784"]   # RC DDI 020 3478 0784
     caller_id_is_caller: false
 
   - key: accounts
     label: Accounts line
     match:
       called_numbers: ["+442045200783"]
-      caller_ids: []                  # TODO RC accounts DDI
+      caller_ids: ["+442034780785"]   # RC DDI 020 3478 0785
     caller_id_is_caller: false
 
   - key: support
     label: Support line
     match:
       called_numbers: ["+442045200783"]
-      caller_ids: []                  # TODO RC support DDI
+      caller_ids: ["+442034780786"]   # RC DDI 020 3478 0786
     caller_id_is_caller: false
 
   # Straight to Telnyx and Cody (no RingCentral), so the CLI is the real caller's number.

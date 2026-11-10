@@ -2,8 +2,7 @@
 Per-line prompt sections (config/lines.yaml). Each `## line: <key>` heading starts the section for
 that line; agent/lines.py returns it as the `line_instructions` dynamic variable, which the
 "This line" part of config/prompt.md includes. HTML comments are stripped before the text is sent.
-Wording is PROPOSED: NOEL to review. The sales, accounts and support sections are inert until
-their RingCentral numbers are in lines.yaml. The parking section is a placeholder until Noel
+Wording is PROPOSED: NOEL to review. The parking section is a placeholder until Noel
 supplies the parking solutions and services training material (marked below).
 -->
 

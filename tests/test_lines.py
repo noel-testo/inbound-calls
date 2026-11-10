@@ -53,12 +53,24 @@ def test_resolve(called, caller, expected):
     assert LINE_MAP.resolve(called, caller).key == expected
 
 
-def test_rc_placeholder_lines_never_match_until_numbers_are_added():
-    for key in ("sales", "accounts", "support"):
-        line = LINE_MAP.by_key[key]
-        assert line.pending and not line.caller_ids
-        assert not line.matches("+442045200783", "+442081584403")
-        assert not line.matches("+442045200783", None)
+@pytest.mark.parametrize(
+    ("national", "e164", "key"),
+    [
+        ("02034780784", "+442034780784", "sales"),
+        ("020 3478 0785", "+442034780785", "accounts"),
+        ("02034780786", "+442034780786", "support"),
+    ],
+)
+def test_rc_lines_match_national_and_e164(national, e164, key):
+    line = LINE_MAP.by_key[key]
+    assert line.caller_ids == (e164,)
+    assert not line.pending and not line.caller_id_is_caller and not line.screen_and_transfer
+    for caller in (national, e164):
+        assert LINE_MAP.resolve("+442045200783", caller).key == key
+        variables = lines.dynamic_variables(LINE_MAP.by_key[key], GREETING, SECTIONS, caller)
+        assert variables["line_key"] == key and variables["caller_phone"] == ""
+    # Called number wins: the same CLI on the parking number is the parking line.
+    assert LINE_MAP.resolve("+442045208242", national).key == "parking"
     assert not LINE_MAP.by_key["general"].has_matchers
 
 
