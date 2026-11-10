@@ -3,6 +3,8 @@
     POST /tools/check_availability       Noel Sesto's Cal.com slots (X-Cody-Secret)
     POST /tools/book_meeting             books a discovery call with Noel Sesto (X-Cody-Secret)
     POST /tools/take_message             returns a message_id; no storage (X-Cody-Secret)
+    POST /lines/resolve                  which line a call came in on + its greeting and variables
+                                         (X-Cody-Secret; called by n8n's conversation-init)
     GET  /healthz
 
 The service holds no state. Conversation-init (caller lookup) and post-call (Notion, Apollo, Slack)
@@ -18,12 +20,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
+from agent import lines as line_config
 from agent import log, tools
 from agent.security import SECRET_HEADER, secret_ok
 from agent.settings import Settings
 
 
-def create_app(settings: Settings | None = None, *, calcom=None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None, *, calcom=None, line_map: line_config.LineMap | None = None
+) -> FastAPI:
     settings = settings or Settings.from_env()
     log.configure()
 
@@ -38,6 +43,9 @@ def create_app(settings: Settings | None = None, *, calcom=None) -> FastAPI:
     app = FastAPI(title="Cody webhook service", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.settings = settings
     app.state.calcom = calcom
+    app.state.line_map = line_map or line_config.load_line_map()
+    greeting = line_config.load_greeting()
+    sections = line_config.load_prompt_sections()
 
     def require_secret(request: Request) -> None:
         if not secret_ok(request.headers.get(SECRET_HEADER), settings.tool_secret):
@@ -64,11 +72,31 @@ def create_app(settings: Settings | None = None, *, calcom=None) -> FastAPI:
     @app.post("/tools/book_meeting")
     async def book_meeting(request: Request):
         require_secret(request)
-        return await tools.book_meeting(app.state.calcom, await json_body(request))
+        return await tools.book_meeting(
+            app.state.calcom, await json_body(request), app.state.line_map
+        )
 
     @app.post("/tools/take_message")
     async def take_message(request: Request):
         require_secret(request)
         return tools.take_message(await json_body(request))
+
+    @app.post("/lines/resolve")
+    async def resolve_line(request: Request):
+        require_secret(request)
+        body = await json_body(request)
+        result = line_config.resolve_call(
+            body.get("called_number"),
+            body.get("caller_id"),
+            line_map=app.state.line_map,
+            greeting=greeting,
+            sections=sections,
+        )
+        log.event(
+            "line_resolved",
+            call_id=body.get("conversation_id"),
+            line=result["line_key"],
+        )
+        return result
 
     return app

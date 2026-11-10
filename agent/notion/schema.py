@@ -3,16 +3,20 @@
 `scripts/provision_notion.py` adds any missing property to each database from these definitions;
 n8n's post-call flow writes rows with the same property names. Each database keeps its default title
 property, named "Name". "Review" is set to "To review" on create and never overwritten, so Noel's
-triage survives a re-delivered webhook.
+triage survives a re-delivered webhook. "Line" (which number the call came in on) is on both
+databases. On the RingCentral lines "Phone" stays empty, because the CLI is not the caller, and
+"Callback number" holds the number the caller gave.
 """
 
 from __future__ import annotations
 
 from agent.extraction import FIELDS, INTENTS
+from agent.lines import load_line_map
 
 OUTCOMES = (
     "discovery_booked",
     "qualified_not_booked",
+    "transferred",
     "message_taken",
     "support_message",
     "supplier_logged",
@@ -21,6 +25,9 @@ OUTCOMES = (
     "max_duration",
     "error",
 )
+# One option per line in config/lines.yaml, named by the line key (the tag): noel-direct, sales,
+# accounts, support, parking, general. "Line" is set on every row from the call's `line_key`.
+LINE_OPTIONS = load_line_map().keys
 REVIEW_OPTIONS = ("To review", "Reviewed", "Not a lead")
 
 
@@ -36,7 +43,9 @@ LEADS: dict[str, dict] = {
     "Name": {"title": {}},
     "Conversation ID": {"rich_text": {}},
     "Call time": {"date": {}},
+    "Line": _select(LINE_OPTIONS),
     "Phone": {"phone_number": {}},
+    "Callback number": {"phone_number": {}},
     "Email": {"email": {}},
     "Organisation": {"rich_text": {}},
     "Role": _select(FIELDS["caller_role"].values),
@@ -65,6 +74,7 @@ TRANSCRIPTS: dict[str, dict] = {
     "Name": {"title": {}},
     "Conversation ID": {"rich_text": {}},
     "Call time": {"date": {}},
+    "Line": _select(LINE_OPTIONS),
     "Caller": {"rich_text": {}},
     "Company": {"rich_text": {}},
     "Outcome": _select(OUTCOMES),

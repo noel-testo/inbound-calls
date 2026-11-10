@@ -12,7 +12,8 @@ import time
 import uuid
 
 from agent import log
-from agent.calcom import CalComError
+from agent.calcom import CalComError, discovery_title
+from agent.lines import LineMap
 from agent.phone import to_e164
 
 CATEGORIES = {"enquiry", "support", "supplier", "other"}
@@ -45,11 +46,25 @@ async def check_availability(calcom, body: dict) -> dict:
     return result
 
 
-async def book_meeting(calcom, body: dict) -> dict:
-    """Book a 15-minute discovery call with Noel Sesto, Technical Director."""
+async def book_meeting(calcom, body: dict, line_map: LineMap | None = None) -> dict:
+    """Book a 15-minute discovery call with Noel Sesto, Technical Director.
+
+    `line` (the agent maps `line_key` to it) tags the booking: the line's title prefix and
+    `metadata.line`. On a line whose CLI is not the caller's (the RingCentral lines) the CLI is
+    never used as the attendee phone: the caller's own number must come in `phone`.
+    """
     conversation_id = body.get("conversation_id")
-    # Cal.com requires a phone; fall back to the CLI the agent maps from `system__caller_id`.
-    phone = to_e164(body.get("phone")) or to_e164(body.get("caller_phone"))
+    line = line_map.get(body.get("line")) if line_map and body.get("line") else None
+    phone = to_e164(body.get("phone"))
+    if not phone and (line is None or line.caller_id_is_caller):
+        # Cal.com requires a phone; fall back to the CLI the agent maps from `system__caller_id`.
+        phone = to_e164(body.get("caller_phone"))
+    tagging = {}
+    if line is not None:
+        tagging = {
+            "title": discovery_title(body.get("organisation", ""), line.calcom_title_prefix),
+            "metadata": {"line": line.key},
+        }
     start = time.monotonic()
     try:
         result = await calcom.book_meeting(
@@ -60,6 +75,7 @@ async def book_meeting(calcom, body: dict) -> dict:
             phone=phone,
             notes=body.get("notes"),
             timeout=CALCOM_TIMEOUT_S,
+            **tagging,
         )
     except (CalComError, KeyError) as e:
         log.event("tool_error", call_id=conversation_id, tool="book_meeting", error=str(e))

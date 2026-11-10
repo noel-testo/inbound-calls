@@ -1,0 +1,81 @@
+# Which line a call arrived on, and how Cody behaves on it (issue #13).
+#
+# Read by agent/lines.py. The webhook service resolves a call to one line from the two numbers
+# ElevenLabs gives us, `system__called_number` (the number dialled on Telnyx) and
+# `system__caller_id` (the CLI), and returns that line's dynamic variables. n8n's conversation-init
+# calls POST /lines/resolve and passes the result straight back to ElevenLabs.
+#
+# Matching: a line matches when every matcher it lists matches (called_numbers AND caller_ids);
+# numbers are compared in E.164, so `02081584403` and `+442081584403` are the same. The first line
+# that matches wins, so list specific lines first. A line with no numbers, or with a
+# matcher that is listed but still empty (`caller_ids: []`), never matches: that is how the
+# RingCentral placeholders below stay inert until Noel sends the numbers. Any call
+# that matches nothing gets `default`, today's generic behaviour.
+#
+# The spoken greeting per line is in greeting.yaml (`line_greetings`), the per-line prompt section
+# in prompt_lines.md. The `key` is the tag: it is the Notion "Line" select value, the Slack tag and
+# the Cal.com booking metadata, so changing one means changing the Notion option too.
+#
+# Never put a personal mobile number here. The transfer destination comes from the environment
+# variable named in `transfer.destination_env`.
+
+default: general
+
+lines:
+  # RingCentral presents the dialled DDI as the CLI, so on this line the real caller's number is
+  # lost: Cody must always ask for a call-back number and must never look the CLI up.
+  - key: noel-direct
+    label: Noel direct line
+    match:
+      called_numbers: ["+442045200783"]
+      caller_ids: ["+442081584403"]   # RC DDI 020 8158 4403
+    caller_id_is_caller: false
+    screen_and_transfer: true
+    transfer:
+      destination_env: NOEL_MOBILE_E164
+      # ElevenLabs "conference": Cody dials Noel, then drops out once he answers. "blind" and
+      # "sip_refer" are the other options (see infra/elevenlabs/README.md for what each needs).
+      type: conference
+      condition: >-
+        Only on Noel's direct line, once the caller's name, company, reason for calling and a
+        call-back number have all been taken. Never on any other line.
+
+  # TODO NOEL: set each RingCentral line to show its own number as the CLI, then fill in the
+  # DDI below. Until then these lines are inert (no numbers, so they never match).
+  - key: sales
+    label: Sales line
+    match:
+      called_numbers: ["+442045200783"]
+      caller_ids: []                  # TODO RC sales DDI
+    caller_id_is_caller: false
+
+  - key: accounts
+    label: Accounts line
+    match:
+      called_numbers: ["+442045200783"]
+      caller_ids: []                  # TODO RC accounts DDI
+    caller_id_is_caller: false
+
+  - key: support
+    label: Support line
+    match:
+      called_numbers: ["+442045200783"]
+      caller_ids: []                  # TODO RC support DDI
+    caller_id_is_caller: false
+
+  # Straight to Telnyx and Cody (no RingCentral), so the CLI is the real caller's number.
+  # Bookings: "[Parking] " title prefix plus metadata {"line": "parking"} on the same Cal.com
+  # event as every other line (DECISIONS 2026-11-10).
+  - key: parking
+    label: Parking line
+    match:
+      called_numbers: ["+442045208242"]
+    caller_id_is_caller: true
+    calcom:
+      title_prefix: "[Parking] "
+
+  # Today's behaviour for every other number, including diverts from the main RingCentral number.
+  - key: general
+    label: General
+    match: {}
+    caller_id_is_caller: true

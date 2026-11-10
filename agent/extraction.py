@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from agent.phone import to_e164
+
 INTENTS = ("new_enquiry", "existing_customer", "supplier_or_sales", "other")
 
 
@@ -79,6 +81,11 @@ FIELDS: dict[str, Field] = {
     "contact_email": Field(
         "string", "The email address the caller confirmed on read-back, or empty."
     ),
+    "callback_number": Field(
+        "string",
+        "The call-back number the caller gave, as digits, or empty. On the RingCentral lines the "
+        "number the call came from is not the caller's, so this is their only number.",
+    ),
     "notes": Field("string", "Anything else material, one short paragraph."),
 }
 
@@ -132,6 +139,8 @@ def parse(results: dict | None) -> dict:
             out[key] = max(n, 0) or None
         else:
             out[key] = _clean_str(raw)
+    if out.get("callback_number"):
+        out["callback_number"] = to_e164(out["callback_number"]) or out["callback_number"]
     if out.get("contact_email"):
         email = out["contact_email"].replace(" ", "").lower()
         out["contact_email"] = email if "@" in email and "." in email.split("@")[-1] else None

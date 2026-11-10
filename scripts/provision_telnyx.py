@@ -2,10 +2,12 @@
 """Idempotently wire the Telnyx DID to ElevenLabs over SIP (SPEC §4, Phase 2).
 
 Creates (if missing) an FQDN SIP connection that routes the inbound PSTN call to
-ElevenLabs' SIP FQDN, then assigns the existing Telnyx DID to it. ElevenLabs is
-inbound-only, so there is no outbound voice profile and no SIP credentials — the
-trunk is authenticated on the ElevenLabs side by Telnyx's signalling source IPs
-(see scripts/provision_elevenlabs.py).
+ElevenLabs' SIP FQDN, then assigns the existing Telnyx DID to it. The connection
+is inbound-only, so there is no outbound voice profile and no SIP credentials — the trunk is
+authenticated on the ElevenLabs side by Telnyx's signalling source IPs (see
+scripts/provision_elevenlabs.py). Every number a line is matched on in config/lines.yaml (the 020
+number and the parking line) goes on the same connection. Outbound calling, which the Noel-direct
+transfer needs, is NOT set up here: see infra/telnyx/README.md.
 
     uv run python scripts/provision_telnyx.py --dry-run   # print the exact requests, no API calls
     uv run python scripts/provision_telnyx.py --apply     # apply (needs TELNYX_API_KEY)
@@ -30,6 +32,10 @@ import httpx
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from agent.lines import load_line_map  # noqa: E402
+
 BASE_URL = "https://api.telnyx.com"
 
 CONNECTION_NAME = "elevenlabs-inbound"
@@ -77,18 +83,25 @@ def _fqdn_body(connection_id: str) -> dict:
     }
 
 
+def _dids(did: str) -> list[str]:
+    """The primary DID first, then every other number lines.yaml matches on."""
+    return list(dict.fromkeys([did, *load_line_map().called_numbers]))
+
+
 def _print_plan(did: str) -> None:
     print("Telnyx → ElevenLabs SIP wiring (plan):")
     print(f"\n1. Ensure FQDN connection '{CONNECTION_NAME}':")
     _show("POST", "/v2/fqdn_connections", _connection_body())
     print(f"\n2. Ensure FQDN {ELEVENLABS_FQDN}:{ELEVENLABS_PORT} on the connection:")
     _show("POST", "/v2/fqdns", _fqdn_body("<connection_id>"))
-    print(f"\n3. Assign DID {did} to the connection:")
-    _show("GET", f"/v2/phone_numbers?filter[phone_number]={did}", None)
-    _show("PATCH", "/v2/phone_numbers/<id>", {"connection_id": "<connection_id>"})
+    for i, number in enumerate(_dids(did), start=3):
+        print(f"\n{i}. Assign DID {number} to the connection:")
+        _show("GET", f"/v2/phone_numbers?filter[phone_number]={number}", None)
+        _show("PATCH", "/v2/phone_numbers/<id>", {"connection_id": "<connection_id>"})
     print(
         "\nInbound-only: no outbound voice profile, no SIP credentials "
-        "(ElevenLabs authenticates by Telnyx signalling IPs)."
+        "(ElevenLabs authenticates by Telnyx signalling IPs). The Noel-direct transfer needs "
+        "outbound calling: see infra/telnyx/README.md."
     )
 
 
@@ -121,7 +134,9 @@ async def _ensure_fqdn(client: httpx.AsyncClient, connection_id: str) -> None:
     print(f"fqdn {ELEVENLABS_FQDN}: created ({r.json()['data']['id']})")
 
 
-async def _assign_number(client: httpx.AsyncClient, did: str, connection_id: str) -> None:
+async def _assign_number(
+    client: httpx.AsyncClient, did: str, connection_id: str, *, required: bool = True
+) -> None:
     r = await client.get("/v2/phone_numbers", params={"filter[phone_number]": did})
     _check(r)
     data = r.json().get("data", [])
@@ -130,7 +145,9 @@ async def _assign_number(client: httpx.AsyncClient, did: str, connection_id: str
             f"phone_number {did}: NOT FOUND in this Telnyx account — purchase/port it first",
             file=sys.stderr,
         )
-        raise SystemExit(1)
+        if required:
+            raise SystemExit(1)
+        return
     num = data[0]
     if num.get("connection_id") == connection_id:
         print(f"phone_number {did}: already on '{CONNECTION_NAME}'")
@@ -163,7 +180,8 @@ async def main() -> int:
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=30.0) as client:
         connection_id = await _ensure_connection(client)
         await _ensure_fqdn(client, connection_id)
-        await _assign_number(client, did, connection_id)
+        for number in _dids(did):
+            await _assign_number(client, number, connection_id, required=number == did)
     print(f"\nDone. Put this in .env:  TELNYX_SIP_CONNECTION_ID={connection_id}")
     return 0
 

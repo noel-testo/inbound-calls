@@ -5,12 +5,16 @@ Creates the "Cody" inbound-receptionist agent (British voice, no audio recording
 transcript retention) if ELEVENLABS_AGENT_ID is unset; otherwise patches the existing agent with
 the Phase 3 settings this repo owns: the §6 data-collection fields n8n's post-call flow parses,
 the dynamic-variable placeholders n8n's conversation-init webhook fills, and permission for that
-webhook to override first_message and ASR keywords. Voice, greeting and privacy are not changed
-on an existing agent. Then imports the Telnyx DID (default +442045200783) as a SIP-trunk number
-bound to the agent. The trunk is authenticated by Telnyx's signalling source IPs.
+webhook to override first_message and ASR keywords, the per-line dynamic variables
+(config/lines.yaml) and, when NOEL_MOBILE_E164 is set, the transfer_to_number tool for Noel's
+direct line. Voice, greeting and privacy are not changed on an existing agent, and the system prompt
+only with --sync-prompt. Then imports the Telnyx DID (default +442045200783) and every other number a line is matched on in config/lines.yaml (the parking
+line) as SIP-trunk numbers bound to the agent. The trunk is authenticated by Telnyx's signalling
+source IPs.
 
     uv run python scripts/provision_elevenlabs.py --dry-run   # print the requests, no API calls
     uv run python scripts/provision_elevenlabs.py --apply     # apply (needs ELEVENLABS_API_KEY)
+    ... --apply --sync-prompt   # also replace an existing agent's system prompt from config/
 
 The agent's first_message and base prompt are read from config/ (never invented here); the
 per-call caller variables and keywords are supplied by n8n's conversation-init webhook. Run
@@ -27,6 +31,12 @@ deleted: remove them in the ElevenLabs dashboard once the 020 number is live.
 
 The conversation-init and post-call webhook URLs (n8n) and the three webhook tools are set in
 the ElevenLabs dashboard (see infra/elevenlabs/README.md).
+
+Noel's mobile (NOEL_MOBILE_E164) is read from the environment, sent to ElevenLabs as the transfer
+destination and never printed: --dry-run shows a placeholder. The tool is the conference type, so
+it needs outbound calling on the SIP trunk, which this script does not set up (see
+infra/elevenlabs/README.md). Without NOEL_MOBILE_E164 the transfer tool is skipped. Applying it
+rewrites the agent's whole transfer_to_number slot.
 
 No secrets are printed: only resource IDs and request bodies (which carry no keys).
 """
@@ -46,18 +56,33 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from agent import lines as line_config  # noqa: E402
 from agent.extraction import data_collection_config  # noqa: E402
+from agent.phone import to_e164  # noqa: E402
 from agent.prompt import render_prompt  # noqa: E402
 
-# n8n's conversation-init must return every one of these (ElevenLabs requirement).
+
+def _default_line_variables() -> dict[str, str]:
+    """Placeholders for the default line, used if the conversation-init call fails or times out."""
+    greeting = line_config.load_greeting()
+    line_map = line_config.load_line_map()
+    return line_config.dynamic_variables(
+        line_map.default, greeting, line_config.load_prompt_sections()
+    )
+
+
+# n8n's conversation-init must return every one of these (ElevenLabs requirement). The line_*
+# variables and caller_id_is_caller come from POST /lines/resolve; caller_phone is blank there on
+# the RingCentral lines because the CLI is not the caller.
 DYNAMIC_VARIABLES = {
     "caller_known": "false",
     "caller_name": "",
     "caller_first_name": "",
     "caller_company": "",
     "caller_relationship": "",
-    "caller_phone": "",
+    **_default_line_variables(),
 }
+REDACTED_DESTINATION = "<NOEL_MOBILE_E164 from the environment>"
 
 BASE_URL = "https://api.elevenlabs.io"
 
@@ -84,11 +109,37 @@ def _base_prompt() -> str:
     return render_prompt((ROOT / "config" / "prompt.md").read_text(), greeting)
 
 
-def _phase3_settings() -> dict:
+def _transfer_tool(destination: str) -> dict:
+    """The transfer_to_number slot, from the line that screens and transfers (config/lines.yaml)."""
+    line = next(ln for ln in line_config.load_line_map().lines if ln.screen_and_transfer)
     return {
-        "conversation_config": {
-            "agent": {"dynamic_variables": {"dynamic_variable_placeholders": DYNAMIC_VARIABLES}},
+        "type": "system",
+        "name": "transfer_to_number",
+        "params": {
+            "system_tool_type": "transfer_to_number",
+            "transfers": [
+                {
+                    "transfer_destination": {"type": "phone", "phone_number": destination},
+                    "condition": line.transfer.condition,
+                    "transfer_type": line.transfer.type,
+                }
+            ],
+            "enable_client_message": True,
         },
+    }
+
+
+def _phase3_settings(noel_mobile: str | None = None, sync_prompt: bool = False) -> dict:
+    agent: dict = {"dynamic_variables": {"dynamic_variable_placeholders": DYNAMIC_VARIABLES}}
+    prompt: dict = {}
+    if sync_prompt:
+        prompt["prompt"] = _base_prompt()
+    if noel_mobile:
+        prompt["built_in_tools"] = {"transfer_to_number": _transfer_tool(noel_mobile)}
+    if prompt:
+        agent["prompt"] = prompt
+    return {
+        "conversation_config": {"agent": agent},
         "platform_settings": {
             "data_collection": data_collection_config(),
             "overrides": {
@@ -102,16 +153,28 @@ def _phase3_settings() -> dict:
     }
 
 
-def _agent_body() -> dict:
-    phase3 = _phase3_settings()
+def _noel_mobile(raw: str | None) -> str | None:
+    """Noel's mobile in E.164 from NOEL_MOBILE_E164, or None if unset; exits if it is invalid."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    e164 = to_e164(raw)
+    if e164 is None:
+        raise SystemExit("NOEL_MOBILE_E164 is not a valid phone number (use E.164, +44...)")
+    return e164
+
+
+def _agent_body(noel_mobile: str | None = None) -> dict:
+    phase3 = _phase3_settings(noel_mobile)
+    phase3_agent = phase3["conversation_config"]["agent"]
     return {
         "name": AGENT_NAME,
         "conversation_config": {
             "agent": {
                 "first_message": _first_message(),
                 "language": LANGUAGE,
-                "prompt": {"prompt": _base_prompt()},
-                **phase3["conversation_config"]["agent"],
+                **phase3_agent,
+                "prompt": {"prompt": _base_prompt(), **phase3_agent.get("prompt", {})},
             },
             "tts": {"voice_id": VOICE_ID},
         },
@@ -153,65 +216,92 @@ def _show(method: str, path: str, body: dict | None) -> None:
             print(f"    {line}")
 
 
-def _print_plan(did: str, agent_id: str | None) -> None:
+def _dids(did: str) -> list[str]:
+    """The primary DID first, then every other number lines.yaml matches on."""
+    return list(dict.fromkeys([did, *line_config.load_line_map().called_numbers]))
+
+
+def _print_plan(did: str, agent_id: str | None, noel_mobile: str | None, sync_prompt: bool) -> None:
+    shown = REDACTED_DESTINATION if noel_mobile else None
     print("ElevenLabs agent + number import (plan):")
     if agent_id:
         print(f"\n1. Agent {agent_id} exists — patch Phase 3 settings:")
-        _show("PATCH", f"/v1/convai/agents/{agent_id}", _phase3_settings())
+        _show("PATCH", f"/v1/convai/agents/{agent_id}", _phase3_settings(shown, sync_prompt))
     else:
         print("\n1. Create agent:")
-        _show("POST", "/v1/convai/agents/create", _agent_body())
-    print(f"\n2. Import DID {did} as a SIP-trunk number:")
-    _show("POST", "/v1/convai/phone-numbers", _number_body(did, agent_id or "<agent_id>"))
+        _show("POST", "/v1/convai/agents/create", _agent_body(shown))
+    if not noel_mobile:
+        print("\n   NOEL_MOBILE_E164 is not set: the transfer_to_number tool is NOT included.")
+    if agent_id and not sync_prompt:
+        print(
+            "   --sync-prompt is not set: the agent's system prompt is NOT updated, so the new "
+            '"This line" section (config/prompt.md) will be missing until you pass it.'
+        )
+    for i, number in enumerate(_dids(did), start=2):
+        print(f"\n{i}. Import DID {number} as a SIP-trunk number:")
+        _show("POST", "/v1/convai/phone-numbers", _number_body(number, agent_id or "<agent_id>"))
 
 
-async def _create_agent(client: httpx.AsyncClient) -> str:
-    r = await client.post("/v1/convai/agents/create", json=_agent_body())
+async def _create_agent(client: httpx.AsyncClient, noel_mobile: str | None) -> str:
+    r = await client.post("/v1/convai/agents/create", json=_agent_body(noel_mobile))
     _check(r)
     aid = r.json()["agent_id"]
     print(f"agent '{AGENT_NAME}': created ({aid})")
     return aid
 
 
-async def _patch_agent(client: httpx.AsyncClient, agent_id: str) -> None:
-    r = await client.patch(f"/v1/convai/agents/{agent_id}", json=_phase3_settings())
+async def _patch_agent(
+    client: httpx.AsyncClient, agent_id: str, noel_mobile: str | None, sync_prompt: bool
+) -> None:
+    body = _phase3_settings(noel_mobile, sync_prompt)
+    r = await client.patch(f"/v1/convai/agents/{agent_id}", json=body)
     _check(r)
     print(f"agent {agent_id}: Phase 3 settings applied")
+    print("system prompt: " + ("replaced from config/" if sync_prompt else "left as it is"))
+    print(
+        "transfer_to_number: "
+        + ("set for Noel's direct line" if noel_mobile else "skipped (NOEL_MOBILE_E164 not set)")
+    )
 
 
-async def _import_number(client: httpx.AsyncClient, did: str, agent_id: str) -> None:
+async def _import_numbers(client: httpx.AsyncClient, dids: list[str], agent_id: str) -> None:
     r = await client.get("/v1/convai/phone-numbers")
     _check(r)
     numbers = r.json()
     for n in numbers:
         bound = (n.get("assigned_agent") or {}).get("agent_id")
-        if n.get("phone_number") != did and bound == agent_id:
+        if n.get("phone_number") not in dids and bound == agent_id:
             print(
                 f"note: {n.get('phone_number')} is still bound to this agent "
-                f"({n.get('phone_number_id')}); remove it in the dashboard when {did} is live"
+                f"({n.get('phone_number_id')}); remove it in the dashboard when {dids[0]} is live"
             )
-    for n in numbers:
-        if n.get("phone_number") == did:
-            print(f"phone_number {did}: already imported ({n.get('phone_number_id')})")
-            return
-    r = await client.post("/v1/convai/phone-numbers", json=_number_body(did, agent_id))
-    _check(r)
-    print(f"phone_number {did}: imported ({r.json().get('phone_number_id')})")
+    imported = {n.get("phone_number"): n.get("phone_number_id") for n in numbers}
+    for did in dids:
+        if did in imported:
+            print(f"phone_number {did}: already imported ({imported[did]})")
+            continue
+        r = await client.post("/v1/convai/phone-numbers", json=_number_body(did, agent_id))
+        _check(r)
+        print(f"phone_number {did}: imported ({r.json().get('phone_number_id')})")
 
 
 async def main() -> int:
     load_dotenv(ROOT / ".env")
     args = sys.argv[1:]
     apply = "--apply" in args
+    sync_prompt = "--sync-prompt" in args
     if not apply and "--dry-run" not in args:
-        print("usage: provision_elevenlabs.py [--dry-run | --apply]", file=sys.stderr)
+        print(
+            "usage: provision_elevenlabs.py [--dry-run | --apply] [--sync-prompt]", file=sys.stderr
+        )
         return 2
 
     did = os.environ.get("TELNYX_DID", "").strip() or DEFAULT_DID
     agent_id = os.environ.get("ELEVENLABS_AGENT_ID", "").strip() or None
+    noel_mobile = _noel_mobile(os.environ.get("NOEL_MOBILE_E164"))
 
     if not apply:
-        _print_plan(did, agent_id)
+        _print_plan(did, agent_id, noel_mobile, sync_prompt)
         return 0
 
     key = os.environ.get("ELEVENLABS_API_KEY")
@@ -222,11 +312,11 @@ async def main() -> int:
     headers = {"xi-api-key": key, "Content-Type": "application/json"}
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=30.0) as client:
         if agent_id:
-            await _patch_agent(client, agent_id)
+            await _patch_agent(client, agent_id, noel_mobile, sync_prompt)
         else:
-            agent_id = await _create_agent(client)
+            agent_id = await _create_agent(client, noel_mobile)
             print(f"\nPut this in .env:  ELEVENLABS_AGENT_ID={agent_id}\n")
-        await _import_number(client, did, agent_id)
+        await _import_numbers(client, _dids(did), agent_id)
     return 0
 
 

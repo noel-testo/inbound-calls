@@ -11,7 +11,7 @@ import json
 import httpx
 import pytest
 
-from agent.calcom import CalComClient, CalComError
+from agent.calcom import CalComClient, CalComError, discovery_title
 
 EVENT_TYPE_ID = 7747197  # control-freq-discovery; not LiftPulse Trial (7103844)
 
@@ -145,4 +145,25 @@ async def test_error_raises_calcomerror():
         await client.book_meeting("2026-10-06T09:00:00Z", "Sam", "sam@example.com", "Acme")
     assert ei.value.status == 422
     assert "no availability" in ei.value.message
+    await client.aclose()
+
+
+async def test_book_meeting_sends_metadata_and_a_custom_title():
+    rec = Recorder(
+        {("POST", "/v2/bookings"): (201, {"data": {"uid": "bk_1", "status": "accepted"}})}
+    )
+    client = make_client(rec)
+    await client.book_meeting(
+        "2026-10-06T09:00:00Z",
+        "Sam",
+        "sam@example.com",
+        "Acme",
+        title=discovery_title("Acme", "[Parking] "),
+        metadata={"line": "parking"},
+    )
+    body = rec.body(-1)
+    assert body["metadata"] == {"line": "parking"}
+    assert body["bookingFieldsResponses"]["title"] == (
+        "[Parking] Discovery call with Noel Sesto, Technical Director – Acme"
+    )
     await client.aclose()
