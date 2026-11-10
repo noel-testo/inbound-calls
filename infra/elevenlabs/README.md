@@ -41,8 +41,11 @@ number `+442045208242` is bound to Cody too (`provision_elevenlabs.py` imports e
 4. Post-call: set Notion **Line** (leads and transcripts) to `line_key`; on `noel-direct`, `sales`,
    `accounts` and `support` leave **Phone** empty and put the extracted `callback_number` in
    **Callback number**; use outcome `transferred` when the transcript shows a successful
-   `transfer_to_number` call; add the line label to the Slack message (Noel direct: alert on every
-   call, whether transferred or a message). Do the Apollo and scoring work as today.
+   `transfer_to_number` call; when data collection `cold_call_declined` is true, set outcome
+   `cold_call_declined`, Review "Not a lead", leave Callback number empty and post the one-line
+   Slack text (no call-back). Otherwise add the line label to the Slack message (Noel direct:
+   alert on every other call, whether transferred or a message). Do the Apollo and scoring work
+   as today; a declined cold call is not a lead, so nothing goes to Apollo.
 
 Transfers need outbound calling on the SIP trunk: see `infra/telnyx/README.md`. Warm transfer with a
 spoken summary (`agent_message`) works only on numbers imported through ElevenLabs' native Twilio

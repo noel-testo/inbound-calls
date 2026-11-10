@@ -115,8 +115,11 @@ def test_prompt_sections_hold_no_comments_or_unfilled_wording():
         assert "{{expert_name}}" not in filled and "{{deflections." not in filled
     parking = lines.instructions(LINE_MAP.by_key["parking"], SECTIONS, GREETING)
     assert "Noel Sesto, our Technical Director" in parking
-    noel = SECTIONS["noel-direct"]
+    noel = " ".join(SECTIONS["noel-direct"].split())
     assert "transfer_to_number" in noel and "call-back number" in noel
+    assert "Noel doesn't take unsolicited sales calls." in noel
+    assert "When in doubt, transfer." in noel
+    assert "do not take a message" in noel and "do not ask for a call-back number" in noel
     for key in ("general", "sales", "accounts", "support", "parking"):
         assert "transfer_to_number" not in SECTIONS[key].replace("Do not transfer", "")
 
@@ -211,9 +214,9 @@ def test_notion_schema_has_a_line_select_for_every_line():
     for schema in (LEADS, TRANSCRIPTS):
         names = [o["name"] for o in schema["Line"]["select"]["options"]]
         assert names == list(LINE_MAP.keys)
-    assert "Callback number" in LEADS and "transferred" in [
-        o["name"] for o in LEADS["Outcome"]["select"]["options"]
-    ]
+    outcomes = [o["name"] for o in LEADS["Outcome"]["select"]["options"]]
+    assert "Callback number" in LEADS
+    assert "transferred" in outcomes and "cold_call_declined" in outcomes
 
 
 def test_callback_number_extraction():
@@ -222,6 +225,10 @@ def test_callback_number_extraction():
     assert got["callback_number"] == MOBILE
     assert extraction.parse({"callback_number": "ext 5"})["callback_number"] == "ext 5"
     assert extraction.parse({})["callback_number"] is None
+    assert extraction.parse({})["cold_call_declined"] is False
+    assert extraction.parse({"cold_call_declined": {"value": True}})["cold_call_declined"] is True
+    assert extraction.parse({"cold_call_declined": "no"})["cold_call_declined"] is False
+    assert extraction.data_collection_config()["cold_call_declined"]["type"] == "boolean"
 
 
 def test_slack_texts_name_the_line():
@@ -261,6 +268,14 @@ def test_slack_texts_name_the_line():
     )
     assert msg.splitlines()[0] == "*Call on Noel direct line:* Sam, Lifts Ltd"
     assert f"Call back: {MOBILE}" in msg and "message taken" in msg
+    declined = slack.cold_call_declined_text(
+        name="Sam", organisation="Leads Co", summary="SEO pitch"
+    )
+    assert declined == "Cold call declined (Noel direct line): Sam, Leads Co — SEO pitch."
+    assert "\n" not in declined and "Call back" not in declined
+    assert slack.cold_call_declined_text(name=None, organisation=None) == (
+        "Cold call declined (Noel direct line): Unknown caller."
+    )
 
 
 def test_transfer_tool_is_built_from_the_line_config_and_env_number():
@@ -270,7 +285,7 @@ def test_transfer_tool_is_built_from_the_line_config_and_env_number():
     transfer = tool["params"]["transfers"][0]
     assert transfer["transfer_destination"] == {"type": "phone", "phone_number": MOBILE}
     assert transfer["transfer_type"] == "conference"
-    assert "Never on any other line" in transfer["condition"]
+    assert "Never for a cold sales call, and never on any other line." in transfer["condition"]
     assert "prompt" not in el._phase3_settings()["conversation_config"]["agent"]
     synced = el._phase3_settings(None, sync_prompt=True)["conversation_config"]["agent"]["prompt"]
     assert "built_in_tools" not in synced and "{{line_instructions}}" in synced["prompt"]

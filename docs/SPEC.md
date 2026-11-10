@@ -191,7 +191,7 @@ None of our own (Neon dropped 2026-11-03). Notion holds the call record and the 
 Runs in **n8n** after it acknowledges ElevenLabs' post-call webhook:
 
 1. `extract` + `score` — parse data collection (§6); score; `high_value` = qualified.
-2. `outcome` — `discovery_booked` (a booking was made), `max_duration`, `qualified_not_booked`, `support_message` / `supplier_logged` / `message_taken` (a `take_message` call), `abandoned` (caller never spoke) or `no_action`.
+2. `outcome` — `discovery_booked` (a booking was made), `max_duration`, `qualified_not_booked`, `support_message` / `supplier_logged` / `message_taken` (a `take_message` call), `transferred` (Noel's direct line, put through), `cold_call_declined` (Noel's direct line, an obvious unsolicited sales call: no transfer, no message), `abandoned` (caller never spoke) or `no_action`.
 3. `notion_transcript` — "Call transcripts" row: date, caller, company, outcome, summary; the full transcript in the page body.
 4. `notion_lead` — "Cody leads" row (schema below), for every call; any message taken is added to its Summary. Its Phone field is what the next call's lookup finds.
 5. `apollo` — §9, qualified only; then the lead row is updated with the Apollo links.

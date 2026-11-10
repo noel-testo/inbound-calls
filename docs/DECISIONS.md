@@ -2,6 +2,18 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-10 — Cold sales calls on Noel's direct line are declined (Noel)
+
+- On `noel-direct`, a call that is clearly an unsolicited sales pitch (lead generation, SEO, energy
+  brokers, marketing lists and the like) is not transferred and no message is taken. Cody says
+  "Noel doesn't take unsolicited sales calls. Thank you for calling." and ends the call.
+- If Cody is not sure, the call is screened and transferred as usual. The transfer tool's condition
+  in `config/lines.yaml` says the same.
+- The call is logged with outcome `cold_call_declined` (Notion "Outcome", on both databases) and
+  Line `noel-direct`. ElevenLabs data collection reports it as `cold_call_declined` (boolean, in
+  `agent/extraction.py`); n8n sets the outcome from that and posts one quiet Slack line, with no
+  call-back. It is not a lead: no Apollo record.
+
 ## 2026-11-10 — Line-aware Cody: one line map, tags everywhere (Noel, issue #13)
 
 - **Cody behaves by line.** `config/lines.yaml` maps a call to a line from `system__called_number`
@@ -12,8 +24,9 @@ Record every architecture decision and every pinned version here. One entry per 
   `+442045200783` the CLI says which RC line was called (`02081584403` is Noel's direct DDI) and the
   real caller's number is lost. Those lines are marked `caller_id_is_caller: false`: no Notion
   caller lookup, `caller_phone` blank, the CLI never used as a Cal.com attendee phone, and Cody
-  always asks for a call-back number (new extraction field `callback_number`, Notion "Callback
-  number"). The parking number goes straight to Telnyx, so its CLI is the real caller.
+  asks for a call-back number (new extraction field `callback_number`, Notion "Callback number"),
+  except an obvious cold sales call, which is declined (see the entry above). The parking number
+  goes straight to Telnyx, so its CLI is the real caller.
 - **Placeholders are inert.** The RC sales/accounts/support lines list `caller_ids: []`; a listed but
   empty matcher means the line never matches, so those calls fall through to `general` until Noel's
   numbers are added.

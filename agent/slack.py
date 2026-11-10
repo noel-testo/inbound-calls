@@ -100,3 +100,23 @@ def message_call_text(
     if notion_url:
         lines.append(f"<{notion_url}|Notion>")
     return "\n".join(lines)
+
+
+def cold_call_declined_text(
+    *,
+    name: str | None,
+    organisation: str | None,
+    summary: str | None = None,
+) -> str:
+    """One quiet line for an unsolicited sales call declined on Noel's direct line.
+
+    No call-back and no ask: the call was ended, and the row is tagged noel-direct with outcome
+    cold_call_declined.
+    """
+    who = name or "Unknown caller"
+    if organisation:
+        who = f"{who}, {organisation}"
+    text = f"Cold call declined (Noel direct line): {who}."
+    if summary:
+        text = f"{text[:-1]} — {summary}."
+    return text

@@ -52,7 +52,7 @@ ElevenLabs hosts the voice and n8n runs caller lookup and post-call, so the host
 - [ ] n8n conversation-init and post-call flows active and tested; RingCentral missed-call alert still working in n8n
 - [ ] RingCentral after-hours rule → `+442045200783`
 - [ ] RingCentral no-answer forwarding → `+442045200783`
-- [ ] Line test calls 22-28 pass (Noel direct, parking, generic)
+- [ ] Line test calls 22-29 pass (Noel direct, parking, generic, cold sales declined)
 - [ ] Old 0330 number removed from ElevenLabs
 - [ ] Once the test calls work: Neon project, GitHub `NEON_API_KEY` secret and `NEON_PROJECT_ID` variable removed
 - [ ] Two-week after-hours review period scheduled

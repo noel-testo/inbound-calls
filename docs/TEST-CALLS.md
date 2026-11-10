@@ -1,12 +1,13 @@
 # Scripted test calls
 
 Run every call over a real Telnyx leg from a known phone — dial the Telnyx number directly, or (for the divert path) the RingCentral main number after-hours. Record the result in `docs/STATUS.md` with the
-`call_id`. "Core" calls (1–10) gate Phase 3; all twenty-eight gate Phase 5.
+`call_id`. "Core" calls (1–10) gate Phase 3; all twenty-nine gate Phase 5.
 
 Expected for every call: greeting spoken verbatim with AI disclosure and the approved call-logging notice; median
 turn latency ≤ 800 ms; no tool error audible; a Notion "Cody leads" row and a
 "Call transcripts" row present (written by n8n). Apollo records and a Slack alert appear **only** for
-qualified callers; no caller is ever added to an Apollo sequence.
+qualified callers, plus one quiet Slack line when a cold call is declined on Noel's direct line
+(call 29). No caller is ever added to an Apollo sequence.
 
 | # | Core | Scenario | Caller says / does | Expected outcome |
 |---|---|---|---|---|
@@ -38,3 +39,4 @@ qualified callers; no caller is ever added to an Apollo sequence.
 | 26 |  | Parking booking | As 25, a high-value enquiry that books | Cal.com booking titled "[Parking] Discovery call with Noel Sesto, Technical Director – <organisation>" with `metadata.line = parking` on event 7747197 |
 | 27 |  | Generic 020 | Dial `+442045200783` from any other number | Unchanged greeting and behaviour; Line `general`; no transfer offered |
 | 28 |  | Placeholder RC lines | Once their numbers are in `lines.yaml`, dial each RC DDI | Line greeting, Line tag, call-back number always asked, no caller lookup, no transfer |
+| 29 |  | Noel direct, cold sales call | As 22. The caller is clearly selling (SEO, lead generation, an energy contract, a marketing list) | Cody says "Noel doesn't take unsolicited sales calls. Thank you for calling." and ends the call. No transfer, no message, no call-back number asked. Notion Line `noel-direct`, outcome `cold_call_declined`, Review "Not a lead". Slack is one line and does not ask for a call-back |

@@ -23,7 +23,8 @@ default: general
 
 lines:
   # RingCentral presents the dialled DDI as the CLI, so on this line the real caller's number is
-  # lost: Cody must always ask for a call-back number and must never look the CLI up.
+  # lost: Cody asks for a call-back number (never looks the CLI up), except an obvious cold
+  # sales call, which is declined with no transfer and no message.
   - key: noel-direct
     label: Noel direct line
     match:
@@ -38,7 +39,8 @@ lines:
       type: conference
       condition: >-
         Only on Noel's direct line, once the caller's name, company, reason for calling and a
-        call-back number have all been taken. Never on any other line.
+        call-back number have all been taken, and the call is not an unsolicited sales call.
+        Never for a cold sales call, and never on any other line.
 
   # TODO NOEL: set each RingCentral line to show its own number as the CLI, then fill in the
   # DDI below. Until then these lines are inert (no numbers, so they never match).

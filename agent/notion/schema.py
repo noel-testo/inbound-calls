@@ -17,6 +17,7 @@ OUTCOMES = (
     "discovery_booked",
     "qualified_not_booked",
     "transferred",
+    "cold_call_declined",
     "message_taken",
     "support_message",
     "supplier_logged",
