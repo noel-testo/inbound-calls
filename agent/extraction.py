@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from agent.phone import to_e164
 
 INTENTS = ("new_enquiry", "existing_customer", "supplier_or_sales", "other")
+PARTNERS = ("justpark",)
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,11 @@ FIELDS: dict[str, Field] = {
     "intent": Field("string", "Why the caller rang.", INTENTS),
     "caller_name": Field("string", "The caller's full name as they gave it, or empty."),
     "organisation": Field("string", "The organisation the caller represents, or empty."),
+    "partner": Field(
+        "string",
+        "justpark when the caller is from JustPark, including JustPark driver support. "
+        "Otherwise empty.",
+    ),
     "caller_role": Field(
         "string",
         "The caller's role.",
@@ -152,6 +158,8 @@ def parse(results: dict | None) -> dict:
             out[key] = max(n, 0) or None
         else:
             out[key] = _clean_str(raw)
+    partner = (out.get("partner") or "").lower()
+    out["partner"] = "justpark" if partner == "justpark" else None
     if out.get("callback_number"):
         out["callback_number"] = to_e164(out["callback_number"]) or out["callback_number"]
     if out.get("contact_email"):

@@ -170,6 +170,10 @@ def test_prompt_sections_hold_no_comments_or_unfilled_wording():
     assert "do not take a message" in noel and "do not ask for a call-back number" in noel
     assert "one-sentence summary" not in noel and "person receiving the call" not in noel
     assert "only for what they have not already given" in noel
+    assert "emergency instruction" not in noel
+    assert "Do not treat an emergency as a cold sales call." in noel
+    for key in LINE_MAP.keys:
+        assert "If the caller is from JustPark" in SECTIONS[key], key
     for key in ("general", "sales", "accounts", "support", "parking"):
         assert "transfer_to_number" not in SECTIONS[key].replace("Do not transfer", "")
 
@@ -267,6 +271,8 @@ def test_notion_schema_has_a_line_select_for_every_line():
     outcomes = [o["name"] for o in LEADS["Outcome"]["select"]["options"]]
     assert "Callback number" in LEADS
     assert "transferred" in outcomes and "cold_call_declined" in outcomes
+    for schema in (LEADS, TRANSCRIPTS):
+        assert schema["Partner"]["select"]["options"] == [{"name": "justpark"}]
 
 
 def test_callback_number_extraction():
@@ -279,6 +285,9 @@ def test_callback_number_extraction():
     assert extraction.parse({"cold_call_declined": {"value": True}})["cold_call_declined"] is True
     assert extraction.parse({"cold_call_declined": "no"})["cold_call_declined"] is False
     assert extraction.data_collection_config()["cold_call_declined"]["type"] == "boolean"
+    assert extraction.parse({"partner": "JustPark"})["partner"] == "justpark"
+    assert extraction.parse({"partner": "Acme"})["partner"] is None
+    assert extraction.parse({})["partner"] is None
 
 
 def test_slack_texts_name_the_line():
@@ -326,6 +335,17 @@ def test_slack_texts_name_the_line():
     assert slack.cold_call_declined_text(name=None, organisation=None) == (
         "Cold call declined (Noel direct line): Unknown caller."
     )
+    tagged = slack.message_call_text(
+        line_label="Sales line",
+        name="Sam",
+        organisation="JustPark",
+        callback_number=None,
+        outcome="transferred",
+        summary=None,
+        notion_url=None,
+        partner="justpark",
+    )
+    assert tagged.startswith("*Call on Sales line:* Sam, JustPark · JustPark")
 
 
 def test_transfer_tool_is_built_from_the_line_config_and_env_number():
@@ -335,7 +355,8 @@ def test_transfer_tool_is_built_from_the_line_config_and_env_number():
     transfer = tool["params"]["transfers"][0]
     assert transfer["transfer_destination"] == {"type": "phone", "phone_number": MOBILE}
     assert transfer["transfer_type"] == "conference"
-    assert "Never for a cold sales call, and never on any other line." in transfer["condition"]
+    assert "when the caller is from JustPark" in transfer["condition"]
+    assert "Never for a cold sales call." in transfer["condition"]
     assert "prompt" not in el._phase3_settings()["conversation_config"]["agent"]
     synced = el._phase3_settings(None, sync_prompt=True)["conversation_config"]["agent"]["prompt"]
     assert "built_in_tools" not in synced and "{{line_instructions}}" in synced["prompt"]

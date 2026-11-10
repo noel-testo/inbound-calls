@@ -37,9 +37,10 @@ lines:
       # "sip_refer" are the other options (see infra/elevenlabs/README.md for what each needs).
       type: conference
       condition: >-
-        Only on Noel's direct line, once the caller's name, company, reason for calling and a
-        call-back number have all been taken, and the call is not an unsolicited sales call.
-        Never for a cold sales call, and never on any other line.
+        Only in two cases, and to this number only. On Noel's direct line, once the caller's
+        name, company, reason for calling and a call-back number have all been taken, and the
+        call is not an unsolicited sales call. On any line, when the caller is from JustPark,
+        including JustPark driver support. Never for a cold sales call.
 
   # Same path as Noel direct: RC forwards to the 020 and presents the dialled DDI as the CLI,
   # so the real caller's number is lost. Numbers given by Noel, 10 Nov 2026.

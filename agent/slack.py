@@ -34,6 +34,10 @@ def _line_suffix(line_label: str | None) -> str:
     return f" ({line_label})" if line_label else ""
 
 
+def _justpark(partner: str | None) -> str:
+    return " · JustPark" if partner == "justpark" else ""
+
+
 def qualified_call_text(
     *,
     name: str | None,
@@ -46,6 +50,7 @@ def qualified_call_text(
     notion_url: str | None,
     apollo_contact_url: str | None,
     line_label: str | None = None,
+    partner: str | None = None,
 ) -> str:
     who = name or "Unknown caller"
     if organisation:
@@ -55,7 +60,7 @@ def qualified_call_text(
         "qualified_not_booked": "qualified, not booked: please call back",
     }.get(outcome, outcome.replace("_", " "))
     lines = [
-        f"*Qualified call{_line_suffix(line_label)}:* {who}",
+        f"*Qualified call{_line_suffix(line_label)}:* {who}{_justpark(partner)}",
         f"Score {score} · {outcome_text}",
     ]
     contact = " · ".join(x for x in (phone, email) if x)
@@ -82,6 +87,7 @@ def message_call_text(
     outcome: str,
     summary: str | None,
     notion_url: str | None,
+    partner: str | None = None,
 ) -> str:
     """Alert for a call that is not a qualified lead but that Noel should see, such as a message
     taken on his direct line or a transfer that was attempted."""
@@ -92,7 +98,7 @@ def message_call_text(
         "transferred": "put through to Noel",
         "message_taken": "message taken",
     }.get(outcome, outcome.replace("_", " "))
-    lines = [f"*Call on {line_label}:* {who}", outcome_text]
+    lines = [f"*Call on {line_label}:* {who}{_justpark(partner)}", outcome_text]
     if callback_number:
         lines.append(f"Call back: {callback_number}")
     if summary:

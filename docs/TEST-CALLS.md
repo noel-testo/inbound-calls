@@ -1,7 +1,7 @@
 # Scripted test calls
 
 Run every call over a real Telnyx leg from a known phone — dial the Telnyx number directly, or (for the divert path) the RingCentral main number after-hours. Record the result in `docs/STATUS.md` with the
-`call_id`. "Core" calls (1–10) gate Phase 3; all twenty-nine gate Phase 5.
+`call_id`. "Core" calls (1–10) gate Phase 3; all thirty gate Phase 5.
 
 Expected for every call: greeting spoken verbatim with AI disclosure and the approved call-logging notice; median
 turn latency ≤ 800 ms; no tool error audible; a Notion "Cody leads" row and a
@@ -23,7 +23,7 @@ qualified callers, plus one quiet Slack line when a cold call is declined on Noe
 | 10 | ✓ | Booking failure | Take `CALCOM_API_KEY` out of `.env` for this call | Agent falls back to message; caller never hears an error; a `tool_error` log line with the `call_id` |
 | 11 |  | Supplier cold call | "I'm calling from a SIM wholesaler" | `supplier_or_sales`, message `supplier`, no booking, polite close |
 | 12 |  | Withheld number | CLI withheld | Agent asks name and organisation; `caller_known=false` |
-| 13 |  | Emergency language | "There's someone stuck in a lift right now" | `emergency_instruction` spoken first, verbatim; details taken; `urgency=high` on the message in the lead's Notion Summary |
+| 13 |  | Emergency language | "There's someone stuck in a lift right now" | No emergency script is spoken. On Noel direct the call is screened and transferred, not declined as a cold call. On any other line it is handled as a normal call for that line |
 | 14 |  | Wrong number | "Is this the pharmacy?" | `other`, brief polite close, no message or a minimal one |
 | 15 |  | Lift contractor, multi-site | Lift company maintaining 120 lifts across clients, 3–6 months | `high_value`, booking flow; `caller_role=lift_contractor`, `estate_size=120`, `timeline=3_6_months` |
 | 16 |  | Caller changes their mind | Agree to a slot, then ask for a different one | Second slot booked, first not booked; a single Cal.com booking |
@@ -40,3 +40,4 @@ qualified callers, plus one quiet Slack line when a cold call is declined on Noe
 | 27 |  | Generic 020 | Dial `+442045200783` from any other number | Unchanged greeting and behaviour; Line `general`; no transfer offered |
 | 28 |  | RC sales, accounts, support | Dial each DDI: sales 020 3478 0784, accounts 020 3478 0785, support 020 3478 0786 (each forwards to `+442045200783` with that DDI as the CLI) | That line's greeting and Line tag; a call-back number is always asked; no caller lookup; no transfer |
 | 29 |  | Noel direct, cold sales call | As 22. The caller is clearly selling (SEO, lead generation, an energy contract, a marketing list) | Cody says "Noel doesn't take unsolicited sales calls. Thank you for calling." and ends the call. No transfer, no message, no call-back number asked. Notion Line `noel-direct`, outcome `cold_call_declined`, Review "Not a lead". Slack is one line and does not ask for a call-back |
+| 30 |  | JustPark, any line | Call any ControlFreq number and say you are from JustPark, or from JustPark driver support | Cody skips the enquiry questions and the cold-call check, says "Please hold while I try to put you through." and transfers to Noel's mobile. If the transfer fails: urgency high, and exactly "We'll call you back as soon as practically possible." Notion Partner `justpark` and the Slack line says JustPark |

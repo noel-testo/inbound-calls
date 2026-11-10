@@ -43,7 +43,9 @@ number `+442045208242` is bound to Cody too (`provision_elevenlabs.py` imports e
    **Callback number**; use outcome `transferred` when the transcript shows a successful
    `transfer_to_number` call; when data collection `cold_call_declined` is true, set outcome
    `cold_call_declined`, Review "Not a lead", leave Callback number empty and post the one-line
-   Slack text (no call-back). Otherwise add the line label to the Slack message (Noel direct:
+   Slack text (no call-back). When data collection `partner` is `justpark`, set Notion **Partner**
+   to `justpark` and add JustPark to the Slack line (a JustPark caller is transferred on every
+   line; if the transfer fails the message urgency is high). Otherwise add the line label to the Slack message (Noel direct:
    alert on every other call, whether transferred or a message). Do the Apollo and scoring work
    as today; a declined cold call is not a lead, so nothing goes to Apollo.
 

@@ -10,7 +10,7 @@ databases. On the RingCentral lines "Phone" stays empty, because the CLI is not 
 
 from __future__ import annotations
 
-from agent.extraction import FIELDS, INTENTS
+from agent.extraction import FIELDS, INTENTS, PARTNERS
 from agent.lines import load_line_map
 
 OUTCOMES = (
@@ -49,6 +49,7 @@ LEADS: dict[str, dict] = {
     "Callback number": {"phone_number": {}},
     "Email": {"email": {}},
     "Organisation": {"rich_text": {}},
+    "Partner": _select(PARTNERS),
     "Role": _select(FIELDS["caller_role"].values),
     "Intent": _select(INTENTS),
     "Outcome": _select(OUTCOMES),
@@ -78,6 +79,7 @@ TRANSCRIPTS: dict[str, dict] = {
     "Line": _select(LINE_OPTIONS),
     "Caller": {"rich_text": {}},
     "Company": {"rich_text": {}},
+    "Partner": _select(PARTNERS),
     "Outcome": _select(OUTCOMES),
     "Summary": {"rich_text": {}},
 }

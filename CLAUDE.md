@@ -11,7 +11,7 @@ This is ControlFreq's self-hosted AI call answering service. Read `docs/SPEC.md`
 5. The voice loop (STT, LLM, TTS) is ElevenLabs; model and voice choices are agent config, never code.
 6. Secrets only in `.env` on the host and in n8n credentials. Never in code, tests, fixtures, logs or commits. `.env.example` lists every variable with a placeholder.
 7. British English in everything a caller or Noel reads. No orphan copy in any UI or spoken string: it fits on one line or breaks evenly across two.
-8. Nothing a caller hears is invented. Greeting, disclosures, emergency wording, business hours and anything about pricing or products come from `config/` and are questions if missing.
+8. Nothing a caller hears is invented. Greeting, disclosures, business hours and anything about pricing or products come from `config/` and are questions if missing. There is no emergency script (DECISIONS 2026-11-10).
 
 ## Questions
 

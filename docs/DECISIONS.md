@@ -2,6 +2,24 @@
 
 Record every architecture decision and every pinned version here. One entry per decision, newest first.
 
+## 2026-11-10 — Hours, closing line, no emergency script, JustPark transfer (Noel)
+
+- **Hours** (Europe/London): Monday to Friday 08:00–18:00, Saturday 09:00–17:00, Sunday 10:00–16:00.
+  Sunday is open, not closed. `agent/prompt.py` fills `{{business_hours}}` from `config/greeting.yaml`.
+- **Closing line,** spoken exactly: "Thanks for calling ControlFreq. Goodbye." Filled into the prompt
+  from `closing` in the same file.
+- **No emergency script.** `emergency_instruction` is deleted, and the prompt steps that told Cody to
+  speak it are gone, including the old noel-direct step. An emergency is not a cold sales call, so
+  on Noel's direct line it is screened and transferred like any other genuine call.
+- **JustPark, on every line.** JustPark driver support, or anyone at JustPark, skips the cold-call
+  check and the enquiry questions. Cody takes a name and a call-back number if they are given
+  quickly, says "Please hold while I try to put you through." and calls `transfer_to_number` to
+  `NOEL_MOBILE_E164` (the same destination and tool as Noel direct; if that variable is unset the
+  tool is not provisioned, so there is no transfer). If the transfer fails or is not answered, Cody
+  takes a message at high urgency and says "We'll call you back as soon as practically possible."
+  The call is tagged `partner=justpark`: a data-collection field, a Notion "Partner" select on both
+  databases, and "JustPark" on the Slack line.
+
 ## 2026-11-10 — Noel direct greeting approved (Noel)
 
 - `line_greetings.noel-direct` is spoken exactly: "Thanks for calling Noel Sesto at ControlFreq. I'm
