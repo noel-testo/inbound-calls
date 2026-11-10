@@ -2,8 +2,10 @@
 Per-line prompt sections (config/lines.yaml). Each `## line: <key>` heading starts the section for
 that line; agent/lines.py returns it as the `line_instructions` dynamic variable, which the
 "This line" part of config/prompt.md includes. HTML comments are stripped before the text is sent.
-Wording is PROPOSED: NOEL to review. The parking section is a placeholder until Noel
-supplies the parking solutions and services training material (marked below).
+Approved by Noel (2026-11-10): the cold-call decline sentence and "One moment, I'll try Noel for you."
+in the noel-direct section. The rest of these sections is still awaiting Noel's review. The parking
+section is a placeholder until Noel supplies the parking solutions and services training material
+(marked below).
 -->
 
 ## line: general

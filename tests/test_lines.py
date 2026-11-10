@@ -109,6 +109,29 @@ def test_line_flags_and_called_numbers():
     assert LINE_MAP.called_numbers == ("+442045200783", "+442045208242")
 
 
+APPROVED_GREETINGS = {
+    "sales": (
+        "Thanks for calling ControlFreq sales. Calls may be transcribed for quality and "
+        "training purposes. I'm Cody, an AI assistant. Please tell me what you're looking for "
+        "and I'll direct your call."
+    ),
+    "accounts": (
+        "Thanks for calling ControlFreq accounts. Calls may be transcribed for quality and "
+        "training purposes. I'm Cody, an AI assistant. Please tell me what your call is about "
+        "and I'll pass it on."
+    ),
+    "support": (
+        "Thanks for calling ControlFreq support. Calls may be transcribed for quality and "
+        "training purposes. I'm Cody, an AI assistant. Please tell me what the problem is and "
+        "I'll pass it on."
+    ),
+    "parking": (
+        "Thanks for calling ControlFreq about car park solutions. Calls may be transcribed for "
+        "quality and training purposes. I'm Cody, an AI assistant. Please tell me what you're "
+        "looking for and I'll direct your call."
+    ),
+}
+
 NOEL_DIRECT_GREETING = (
     "Thanks for calling Noel Sesto at ControlFreq. I'm Cody, Noel's AI assistant. "
     "This call will be transcribed. Let me try and put you through. "
@@ -122,6 +145,8 @@ def test_every_line_has_a_prompt_section_and_a_greeting_with_the_disclosures():
         spoken = lines.first_message(line, GREETING)
         if line.key == "noel-direct":
             assert spoken == NOEL_DIRECT_GREETING
+        elif line.key in APPROVED_GREETINGS:
+            assert spoken == APPROVED_GREETINGS[line.key], line.key
         else:
             assert "Calls may be transcribed for quality and training purposes." in spoken
             assert "I'm Cody, an AI assistant" in spoken
@@ -140,6 +165,7 @@ def test_prompt_sections_hold_no_comments_or_unfilled_wording():
     noel = " ".join(SECTIONS["noel-direct"].split())
     assert "transfer_to_number" in noel and "call-back number" in noel
     assert "Noel doesn't take unsolicited sales calls." in noel
+    assert "One moment, I'll try Noel for you." in noel
     assert "When in doubt, transfer." in noel
     assert "do not take a message" in noel and "do not ask for a call-back number" in noel
     assert "one-sentence summary" not in noel and "person receiving the call" not in noel

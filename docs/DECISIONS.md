@@ -10,7 +10,8 @@ Record every architecture decision and every pinned version here. One entry per 
   the reason, so Cody then asks only for whichever of name, company and reason is still missing.
 - There is no whisper on a Telnyx transfer, so the noel-direct prompt no longer tells Cody to
   summarise the call to the person who answers. Name, company and reason go to Slack and Notion
-  after the call. The other line greetings are still proposals.
+  after the call. The sales, accounts, support and parking greetings were approved the same day
+  (see QUESTIONS, Answered).
 
 ## 2026-11-10 — RingCentral sales, accounts and support numbers (Noel)
 
